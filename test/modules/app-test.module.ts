@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TestDBModule } from './test-db/test-db.module';
-import { AuthModule } from 'src/modules/auth/auth.module';
-import { UserModule } from 'src/modules/user/user.module';
 import { AppController } from 'src/app.controller';
 import { AppService } from 'src/app.service';
+import { featureModules } from 'src/modules';
 
 @Module({
-  imports: [TestDBModule.forRoot(), AuthModule, UserModule],
+  imports: [TestDBModule.forRoot(), ...featureModules],
   controllers: [AppController],
   providers: [AppService],
 })
