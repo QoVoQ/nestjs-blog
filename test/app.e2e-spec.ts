@@ -108,78 +108,78 @@ describe('AppController (e2e)', () => {
       });
     });
 
-    // describe('Profile Related API', () => {
-    //   describe('GET /profiles/:username', () => {
-    //     it('Get self profile should get valid profileRO', () => {
-    //       return request(server)
-    //         .get(`/profiles/${user1.userInfo.username}`)
-    //         .set(user1.getAuthHeader())
-    //         .send()
-    //         .expect(HttpStatus.OK)
-    //         .then(res => {
-    //           expect(res.body).toEqual(user1.getProfileRO(false));
-    //         });
-    //     });
-    //   });
+    describe('Profile Related API', () => {
+      describe('GET /profiles/:username', () => {
+        it('Get self profile should get valid profileRO', () => {
+          return request(server)
+            .get(`/profiles/${user1.userInfo.username}`)
+            .set(user1.getAuthHeader())
+            .send()
+            .expect(HttpStatus.OK)
+            .then(res => {
+              expect(res.body).toEqual(user1.getProfileRO(false));
+            });
+        });
+      });
 
-    //   describe('POST /profiles/:username/follow', () => {
-    //     it('Following:  profile(following) should update', () => {
-    //       return request(server)
-    //         .post(`/profiles/${user2.userInfo.username}/follow`)
-    //         .set(user1.getAuthHeader())
-    //         .send()
-    //         .expect(HttpStatus.CREATED)
-    //         .then(res => {
-    //           expect(res.body).toEqual(user2.getProfileRO(true));
-    //         });
-    //     });
+      describe('POST /profiles/:username/follow', () => {
+        it('Following:  profile(following) should update', () => {
+          return request(server)
+            .post(`/profiles/${user2.userInfo.username}/follow`)
+            .set(user1.getAuthHeader())
+            .send()
+            .expect(HttpStatus.CREATED)
+            .then(res => {
+              expect(res.body).toEqual(user2.getProfileRO(true));
+            });
+        });
 
-    //     it('Following: the same one twice should not throw error', () => {
-    //       return request(server)
-    //         .post(`/profiles/${user2.userInfo.username}/follow`)
-    //         .set(user1.getAuthHeader())
-    //         .send()
-    //         .expect(HttpStatus.CREATED)
-    //         .then(res => {
-    //           expect(res.body).toEqual(user2.getProfileRO(true));
-    //         });
-    //     });
-    //   });
+        it('Following: the same one twice should not throw error', () => {
+          return request(server)
+            .post(`/profiles/${user2.userInfo.username}/follow`)
+            .set(user1.getAuthHeader())
+            .send()
+            .expect(HttpStatus.CREATED)
+            .then(res => {
+              expect(res.body).toEqual(user2.getProfileRO(true));
+            });
+        });
+      });
 
-    //   describe('DELETE /profiles/:username/follow', () => {
-    //     it('Unfollowing: profile(following) should update', () => {
-    //       return request(server)
-    //         .delete(`/profiles/${user2.userInfo.username}/follow`)
-    //         .set(user1.getAuthHeader())
-    //         .send()
-    //         .expect(HttpStatus.OK)
-    //         .then(res => {
-    //           expect(res.body).toEqual(user2.getProfileRO(false));
-    //         });
-    //     });
+      describe('DELETE /profiles/:username/follow', () => {
+        it('Unfollowing: profile(following) should update', () => {
+          return request(server)
+            .delete(`/profiles/${user2.userInfo.username}/follow`)
+            .set(user1.getAuthHeader())
+            .send()
+            .expect(HttpStatus.OK)
+            .then(res => {
+              expect(res.body).toEqual(user2.getProfileRO(false));
+            });
+        });
 
-    //     it('Unfollowing: the same one twice should not throw error', () => {
-    //       return request(server)
-    //         .delete(`/profiles/${user2.userInfo.username}/follow`)
-    //         .set(user1.getAuthHeader())
-    //         .send()
-    //         .expect(HttpStatus.OK)
-    //         .then(res => {
-    //           expect(res.body).toEqual(user2.getProfileRO(false));
-    //         });
-    //     });
+        it('Unfollowing: the same one twice should not throw error', () => {
+          return request(server)
+            .delete(`/profiles/${user2.userInfo.username}/follow`)
+            .set(user1.getAuthHeader())
+            .send()
+            .expect(HttpStatus.OK)
+            .then(res => {
+              expect(res.body).toEqual(user2.getProfileRO(false));
+            });
+        });
 
-    //     it('Following:  profile(following) should update', () => {
-    //       return request(server)
-    //         .post(`/profiles/${user2.userInfo.username}/follow`)
-    //         .set(user1.getAuthHeader())
-    //         .send()
-    //         .expect(HttpStatus.CREATED)
-    //         .then(res => {
-    //           expect(res.body).toEqual(user2.getProfileRO(true));
-    //         });
-    //     });
-    //   });
-    // });
+        it('Following:  profile(following) should update', () => {
+          return request(server)
+            .post(`/profiles/${user2.userInfo.username}/follow`)
+            .set(user1.getAuthHeader())
+            .send()
+            .expect(HttpStatus.CREATED)
+            .then(res => {
+              expect(res.body).toEqual(user2.getProfileRO(true));
+            });
+        });
+      });
+    });
   });
 });

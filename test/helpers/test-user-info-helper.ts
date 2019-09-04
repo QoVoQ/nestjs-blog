@@ -1,4 +1,5 @@
 import { UserData, UserRO } from 'src/modules/user/user.entity';
+import { ProfileRO } from 'src/modules/profile/profile.interface';
 
 export class TestUserInfoHelper {
   static uid: number = 0;
@@ -73,13 +74,13 @@ export class TestUserInfoHelper {
     return userData;
   }
 
-  // getProfileRO(following: boolean): ProfileRO {
-  //   const {
-  //     userInfo: { password, email, token, ...profileData },
-  //   } = this;
+  getProfileRO(following: boolean): ProfileRO {
+    const {
+      userInfo: { password, email, token, ...profileData },
+    } = this;
 
-  //   return {
-  //     profile: { ...profileData, following },
-  //   };
-  // }
+    return {
+      profile: { ...profileData, following },
+    };
+  }
 }

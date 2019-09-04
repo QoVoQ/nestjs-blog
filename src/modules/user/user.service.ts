@@ -1,11 +1,13 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeleteResult } from 'typeorm';
+import { Repository, DeleteResult, FindConditions } from 'typeorm';
 import { hashPassword } from 'src/shared/utils';
 import { UserEntity } from './user.entity';
 import { LoginUserDto, CreateUserDto, UpdateUserDto } from './dto';
 import { JwtService } from '@nestjs/jwt';
 import { UserNotFoundException } from 'src/exceptions/user-not-found.exception';
+import { ProfileRO } from '../profile/profile.interface';
+import { JwtPayload } from '../auth/jwt.strategy';
 
 @Injectable()
 export class UserService {
@@ -28,81 +30,85 @@ export class UserService {
     return this.userRepository.findOne({ email });
   }
 
-  // async getProfile(
-  //   username: string,
-  //   token: string | null | UserEntity,
-  // ): Promise<ProfileRO> {
-  //   const userBeingChecked = await this.userRepository.findOne({ username });
-  //   if (userBeingChecked === undefined) {
-  //     return {
-  //       profile: null,
-  //     };
-  //   }
+  async findOne(filterObj: FindConditions<UserEntity>): Promise<UserEntity> {
+    return this.userRepository.findOne(filterObj);
+  }
 
-  //   let userIdChecking: number;
-  //   if (typeof token === 'string') {
-  //     // use exception filter here?
-  //     // handle exception when token verification fail, throw other exceptions
-  //     userIdChecking = ((await this.jwtService.verifyAsync(
-  //       token,
-  //     )) as JwtPayload).userId;
-  //   } else if (token instanceof UserEntity) {
-  //     userIdChecking = token.id;
-  //   }
+  async getProfile(
+    username: string,
+    token: string | null | UserEntity,
+  ): Promise<ProfileRO> {
+    const userBeingChecked = await this.userRepository.findOne({ username });
+    if (userBeingChecked === undefined) {
+      return {
+        profile: null,
+      };
+    }
 
-  //   const following =
-  //     typeof userIdChecking === 'number'
-  //       ? await this.checkIfAFollowingB(userIdChecking, userBeingChecked.id)
-  //       : false;
+    let userIdChecking: number;
+    if (typeof token === 'string') {
+      // use exception filter here?
+      // handle exception when token verification fail, throw other exceptions
+      userIdChecking = ((await this.jwtService.verifyAsync(
+        token,
+      )) as JwtPayload).userId;
+    } else if (token instanceof UserEntity) {
+      userIdChecking = token.id;
+    }
 
-  //   return userBeingChecked.buildProfile(following);
-  // }
+    const following =
+      typeof userIdChecking === 'number'
+        ? await this.checkIfAFollowingB(userIdChecking, userBeingChecked.id)
+        : false;
 
-  // async follow(username: string, user: UserEntity): Promise<ProfileRO> {
-  //   const userToFollow = await this.userRepository.findOne({ username });
-  //   if (userToFollow === undefined) {
-  //     throw new UserNotFoundException(`username: ${username}`);
-  //   }
+    return userBeingChecked.buildProfile(following);
+  }
 
-  //   const profile = await this.getProfile(username, user);
+  async follow(username: string, user: UserEntity): Promise<ProfileRO> {
+    const userToFollow = await this.userRepository.findOne({ username });
+    if (userToFollow === undefined) {
+      throw new UserNotFoundException(`username: ${username}`);
+    }
 
-  //   if (profile.profile.following) {
-  //     return profile;
-  //   }
+    const profile = await this.getProfile(username, user);
 
-  //   await this.userRepository
-  //     .createQueryBuilder('user')
-  //     .relation('followings')
-  //     .of(user.id)
-  //     .add(userToFollow.id);
+    if (profile.profile.following) {
+      return profile;
+    }
 
-  //   profile.profile.following = true;
-  //   // return profile;
-  //   return await this.getProfile(username, user);
-  // }
+    await this.userRepository
+      .createQueryBuilder('user')
+      .relation('followings')
+      .of(user.id)
+      .add(userToFollow.id);
 
-  // async unfollow(username: string, user: UserEntity): Promise<ProfileRO> {
-  //   const userToFollow = await this.userRepository.findOne({ username });
-  //   if (userToFollow === undefined) {
-  //     throw new UserNotFoundException(`username: ${username}`);
-  //   }
+    profile.profile.following = true;
+    // return profile;
+    return await this.getProfile(username, user);
+  }
 
-  //   const profile = await this.getProfile(username, user);
+  async unfollow(username: string, user: UserEntity): Promise<ProfileRO> {
+    const userToFollow = await this.userRepository.findOne({ username });
+    if (userToFollow === undefined) {
+      throw new UserNotFoundException(`username: ${username}`);
+    }
 
-  //   if (!profile.profile.following) {
-  //     return profile;
-  //   }
+    const profile = await this.getProfile(username, user);
 
-  //   await this.userRepository
-  //     .createQueryBuilder('user')
-  //     .relation('followings')
-  //     .of(user.id)
-  //     .remove(userToFollow.id);
+    if (!profile.profile.following) {
+      return profile;
+    }
 
-  //   profile.profile.following = false;
-  //   // return profile;
-  //   return await this.getProfile(username, user);
-  // }
+    await this.userRepository
+      .createQueryBuilder('user')
+      .relation('followings')
+      .of(user.id)
+      .remove(userToFollow.id);
+
+    profile.profile.following = false;
+    // return profile;
+    return await this.getProfile(username, user);
+  }
 
   async findByEmailAndPwd(
     loginUserDto: LoginUserDto,
@@ -162,15 +168,15 @@ export class UserService {
     return this.userRepository.delete({ email });
   }
 
-  // private async checkIfAFollowingB(aId: number, bId: number): Promise<boolean> {
-  //   const res = await this.userRepository.query(
-  //     `SELECT * FROM follow_relation WHERE followerId = ? AND followeeId = ?`,
-  //     [aId, bId],
-  //   );
-  //   if (Array.isArray(res) && res.length > 0) {
-  //     return true;
-  //   }
+  async checkIfAFollowingB(aId: number, bId: number): Promise<boolean> {
+    const res = await this.userRepository.query(
+      `SELECT * FROM follow_relation WHERE followerId = ? AND followeeId = ?`,
+      [aId, bId],
+    );
+    if (Array.isArray(res) && res.length > 0) {
+      return true;
+    }
 
-  //   return false;
-  // }
+    return false;
+  }
 }
