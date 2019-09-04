@@ -3,6 +3,9 @@ import { Request } from 'express';
 @Injectable()
 export class RequestLoggerMiddleware implements NestMiddleware {
   use(req: Request, res, next) {
+    if (process.env.NODE_ENV === 'test') {
+      return next();
+    }
     console.log(`****************${req.method} ${req.path}****************`);
     console.log(`Headers: ${JSON.stringify(req.headers)}`);
     console.log(`query: ${JSON.stringify(req.query)}`);
