@@ -123,7 +123,6 @@ export class UserService {
         username,
       })
       .getOne();
-    console.log(existingUser);
 
     if (existingUser) {
       throw new HttpException(
