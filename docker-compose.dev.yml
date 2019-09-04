@@ -1,0 +1,40 @@
+version: '3'
+
+volumes:
+  blog_data_e2e:
+  blog_data_dev:
+
+networks:
+  blog_nw:
+
+services:
+  blog_db_e2e:
+    image: mysql:5.7
+    ports:
+      - '23106:3306'
+    volumes:
+      - blog_data_e2e:/var/lib/mysql
+      - ./mysql-log/e2e:/var/log/mysql
+      - ./docker-config/mysql:/etc/mysql/conf.d
+    networks:
+      - blog_nw
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: blog
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+  blog_db_dev:
+    image: mysql:5.7
+    ports:
+      - '3306:3306'
+    volumes:
+      - blog_data_dev:/var/lib/mysql
+      - ./mysql-log/dev:/var/log/mysql
+      - ./docker-config/mysql:/etc/mysql/conf.d
+    networks:
+      - blog_nw
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: blog
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
