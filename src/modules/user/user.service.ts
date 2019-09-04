@@ -34,80 +34,20 @@ export class UserService {
     return this.userRepository.findOne(filterObj);
   }
 
-  async getProfile(
-    username: string,
-    token: string | null | UserEntity,
-  ): Promise<ProfileRO> {
-    const userBeingChecked = await this.userRepository.findOne({ username });
-    if (userBeingChecked === undefined) {
-      return {
-        profile: null,
-      };
-    }
-
-    let userIdChecking: number;
-    if (typeof token === 'string') {
-      // use exception filter here?
-      // handle exception when token verification fail, throw other exceptions
-      userIdChecking = ((await this.jwtService.verifyAsync(
-        token,
-      )) as JwtPayload).userId;
-    } else if (token instanceof UserEntity) {
-      userIdChecking = token.id;
-    }
-
-    const following =
-      typeof userIdChecking === 'number'
-        ? await this.checkIfAFollowingB(userIdChecking, userBeingChecked.id)
-        : false;
-
-    return userBeingChecked.buildProfile(following);
-  }
-
-  async follow(username: string, user: UserEntity): Promise<ProfileRO> {
-    const userToFollow = await this.userRepository.findOne({ username });
-    if (userToFollow === undefined) {
-      throw new UserNotFoundException(`username: ${username}`);
-    }
-
-    const profile = await this.getProfile(username, user);
-
-    if (profile.profile.following) {
-      return profile;
-    }
-
-    await this.userRepository
+  async createFollowRelation(followerId: number, followeeId: number) {
+    return this.userRepository
       .createQueryBuilder('user')
       .relation('followings')
-      .of(user.id)
-      .add(userToFollow.id);
-
-    profile.profile.following = true;
-    // return profile;
-    return await this.getProfile(username, user);
+      .of(followerId)
+      .add(followeeId);
   }
 
-  async unfollow(username: string, user: UserEntity): Promise<ProfileRO> {
-    const userToFollow = await this.userRepository.findOne({ username });
-    if (userToFollow === undefined) {
-      throw new UserNotFoundException(`username: ${username}`);
-    }
-
-    const profile = await this.getProfile(username, user);
-
-    if (!profile.profile.following) {
-      return profile;
-    }
-
-    await this.userRepository
+  async removeFollowRelation(followerId: number, followeeId: number) {
+    return this.userRepository
       .createQueryBuilder('user')
       .relation('followings')
-      .of(user.id)
-      .remove(userToFollow.id);
-
-    profile.profile.following = false;
-    // return profile;
-    return await this.getProfile(username, user);
+      .of(followerId)
+      .remove(followeeId);
   }
 
   async findByEmailAndPwd(

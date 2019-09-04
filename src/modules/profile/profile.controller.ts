@@ -9,18 +9,18 @@ import {
 import { JwtToken, User } from 'src/decorators';
 import { AuthGuard } from '@nestjs/passport';
 import { ProfileRO } from './profile.interface';
-import { UserService } from '../user/user.service';
+import { ProfileService } from '.';
 
 @Controller('profiles')
 export class ProfileController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly profileService: ProfileService) {}
 
   @Get(':username')
   async getProfile(
     @Param('username') username: string,
     @JwtToken() token: string | null,
   ): Promise<ProfileRO> {
-    return this.userService.getProfile(username, token);
+    return this.profileService.getProfile(username, token);
   }
 
   @Post(':username/follow')
@@ -29,7 +29,7 @@ export class ProfileController {
     @User() user,
     @Param('username') username: string,
   ): Promise<ProfileRO> {
-    return this.userService.follow(username, user);
+    return this.profileService.follow(username, user);
   }
 
   @Delete(':username/follow')
@@ -38,6 +38,6 @@ export class ProfileController {
     @User() user,
     @Param('username') username: string,
   ): Promise<ProfileRO> {
-    return this.userService.unfollow(username, user);
+    return this.profileService.unfollow(username, user);
   }
 }
