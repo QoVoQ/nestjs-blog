@@ -10,7 +10,7 @@ import {
 import { Exclude, Expose, plainToClass } from 'class-transformer';
 import { IsNotEmpty, IsEmail } from 'class-validator';
 import { hashPassword } from 'src/shared/utils';
-import { ProfileRO } from '../profile/profile.interface';
+import { ProfileRO } from '../profile';
 
 // every property of UserEntityRO should have @Expose() decorate in UserEntity
 export interface UserEntityRO {
