@@ -6,11 +6,13 @@ import {
   BeforeUpdate,
   ManyToMany,
   JoinTable,
+  OneToMany,
 } from 'typeorm';
 import { Exclude, Expose, plainToClass } from 'class-transformer';
 import { IsNotEmpty, IsEmail } from 'class-validator';
 import { hashPassword } from 'src/shared/utils';
 import { ProfileRO } from '../profile';
+import { ArticleEntity } from '../article/article.entity';
 
 // every property of UserEntityRO should have @Expose() decorate in UserEntity
 export interface UserEntityRO {
@@ -79,6 +81,23 @@ export class UserEntity {
     cascade: ['update', 'insert'],
   })
   followers: UserEntity[];
+
+  @OneToMany(type => ArticleEntity, article => article.author)
+  articles: ArticleEntity[];
+
+  @ManyToMany(type => ArticleEntity)
+  @JoinTable({
+    name: 'favorites',
+    joinColumn: {
+      name: 'userId',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'articleId',
+      referencedColumnName: 'id',
+    },
+  })
+  favorites: ArticleEntity[];
 
   private static buildEntityRO(user: UserEntity): UserEntityRO {
     return plainToClass(UserEntity, user, {
