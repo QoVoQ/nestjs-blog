@@ -8,5 +8,6 @@ import { CommonModule } from '../common/common.module';
   imports: [CommonModule, UserModule],
   controllers: [ProfileController],
   providers: [ProfileService],
+  exports: [ProfileService],
 })
 export class ProfileModule {}

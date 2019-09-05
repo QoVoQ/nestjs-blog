@@ -20,7 +20,7 @@ export class TagService {
     const tagExist = await this.tagRepository.findOne({ name: tag });
 
     if (tagExist instanceof TagEntity) {
-      return Promise.resolve();
+      return Promise.resolve(tagExist);
     }
     return this.tagRepository.save({ name: tag });
   }

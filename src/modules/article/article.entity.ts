@@ -11,11 +11,12 @@ import {
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
-import slug from 'slug';
+import slugify from '@sindresorhus/slugify';
 import { UserEntity } from '../user/user.entity';
 import { TagEntity } from '../tag/tag.entity';
-import { Expose, Exclude, plainToClass } from 'class-transformer';
+import { Expose, Exclude, plainToClass, Type } from 'class-transformer';
 import { ArticleRO } from './article.interface';
+import { Profile } from '../profile/profile.interface';
 
 @Entity('article')
 @Exclude()
@@ -34,7 +35,7 @@ export class ArticleEntity {
   @BeforeUpdate()
   makeSlug() {
     this.slug =
-      slug(this.title, { lower: true }) +
+      slugify(this.title, { lowercase: true }) +
       '-' +
       Math.floor(Math.random() * Math.pow(36, 6)).toString(36);
   }
@@ -54,8 +55,7 @@ export class ArticleEntity {
   description: string;
 
   @Column({
-    nullable: false,
-    default: '',
+    type: 'text',
   })
   @Expose()
   body: string;
@@ -91,22 +91,38 @@ export class ArticleEntity {
     },
   })
   @Expose()
+  @Type(() => TagEntity)
   tagList: TagEntity[];
 
   // @OneToMany()
   // comments: CommentEntity[]
 
-  @ManyToOne(type => UserEntity, user => user.articles, { eager: true })
-  @Expose()
+  @Column()
+  authorId: number;
+
+  @ManyToOne(type => UserEntity, user => user.articles)
   author: UserEntity;
 
-  buildRO(this: ArticleEntity, favorited: boolean): ArticleRO {
+  buildRO(
+    this: ArticleEntity,
+    authorProfile: Profile,
+    favorited: boolean,
+  ): ArticleRO {
     const { tagList, ...articleContent } = plainToClass(ArticleEntity, this, {
       excludeExtraneousValues: true,
     });
 
-    const tags = tagList.map(tag => tag.buildRO());
+    const tags = Array.isArray(tagList)
+      ? tagList.map(tag => tag.buildRO())
+      : [];
 
-    return { article: { ...articleContent, favorited, tagList: tags } };
+    return {
+      article: {
+        ...articleContent,
+        favorited,
+        tagList: tags,
+        author: authorProfile,
+      },
+    };
   }
 }

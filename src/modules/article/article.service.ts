@@ -5,18 +5,20 @@ import { TagService } from '../tag/tag.service';
 import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleRO } from './article.interface';
+import { ProfileService } from '../profile/profile.service';
 
 export class ArticleService {
   constructor(
     @InjectRepository(ArticleEntity)
     private readonly articleRepository: Repository<ArticleEntity>,
     private readonly tagService: TagService,
+    private readonly profileService: ProfileService,
   ) {}
 
-  async findBySlug(slug: string, userId?: number): Promise<ArticleRO> {
+  async findBySlug(slug: string, user?: UserEntity): Promise<ArticleRO> {
     const article = await this.articleRepository.findOneOrFail({ slug });
 
-    return this.getRO(article, userId);
+    return this.getRO(article, user);
   }
 
   async create(
@@ -30,16 +32,17 @@ export class ArticleService {
     article.author = user;
 
     if (Array.isArray(tagList)) {
-      await this.tagService.saveTags(tagList);
+      const tags = await this.tagService.saveTags(tagList);
+      article.tagList = tags;
     }
 
     await this.articleRepository.save(article);
 
-    return article.buildRO(false);
+    return this.getRO(article, user);
   }
 
   async update(
-    userId: number,
+    user: UserEntity,
     slug: string,
     updateArticleDto: UpdateArticleDto,
   ): Promise<ArticleRO> {
@@ -49,7 +52,7 @@ export class ArticleService {
     Object.assign(article, updateArticleDto);
     const newArticle = await this.articleRepository.save(article);
 
-    return this.getRO(newArticle, userId);
+    return this.getRO(newArticle, user);
   }
 
   async delete(slug: string): Promise<DeleteResult> {
@@ -61,7 +64,7 @@ export class ArticleService {
     articleId: number,
   ): Promise<boolean> {
     const rel = await this.articleRepository.query(
-      `SELECT * FROM favourites WHERE userId = ? AND articleId = ?`,
+      `SELECT * FROM favorites WHERE userId = ? AND articleId = ?`,
       [userId, articleId],
     );
 
@@ -74,13 +77,18 @@ export class ArticleService {
 
   private async getRO(
     article: ArticleEntity,
-    userId?: number,
+    user?: UserEntity,
   ): Promise<ArticleRO> {
     const favorited =
-      typeof userId === 'number'
-        ? await this.checkUserLikeArticle(userId, article.id)
+      user instanceof UserEntity
+        ? await this.checkUserLikeArticle(user.id, article.id)
         : false;
 
-    return article.buildRO(favorited);
+    const { profile } = await this.profileService.getProfile(
+      article.authorId,
+      user,
+    );
+
+    return article.buildRO(profile, favorited);
   }
 }

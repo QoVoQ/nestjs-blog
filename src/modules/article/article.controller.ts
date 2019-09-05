@@ -18,6 +18,7 @@ import { ArticleRO } from './article.interface';
 import { JwtOptionalGuard } from '../auth/jwt-optional.guard';
 import { Request } from 'express';
 import { UserEntity } from '../user/user.entity';
+import { CreateUserDto } from '../user/dto';
 
 @Controller('articles')
 export class ArticleController {
@@ -29,10 +30,7 @@ export class ArticleController {
     @Param('slug') slug: string,
     @Req() req: Request,
   ): Promise<ArticleRO> {
-    return this.articleService.findBySlug(
-      slug,
-      req.user ? (req.user as UserEntity).id : undefined,
-    );
+    return this.articleService.findBySlug(slug, req.user as UserEntity);
   }
 
   @Post()
@@ -52,7 +50,7 @@ export class ArticleController {
     @Param('slug') slug: string,
     @Body(MyValidationPipe()) dto: UpdateArticleDto,
   ) {
-    return this.articleService.update(user.id, slug, dto);
+    return this.articleService.update(user, slug, dto);
   }
 
   @Delete(':slug')

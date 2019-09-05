@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Expose } from 'class-transformer';
 
 @Entity('tag')
 export class TagEntity {
@@ -6,6 +7,7 @@ export class TagEntity {
   id: number;
 
   @Column({ nullable: false, default: '' })
+  @Expose()
   name: string;
 
   buildRO(): string {

@@ -5,22 +5,25 @@ import {
   Post,
   UseGuards,
   Delete,
+  Req,
 } from '@nestjs/common';
 import { JwtToken, User } from 'src/decorators';
 import { AuthGuard } from '@nestjs/passport';
 import { ProfileRO } from './profile.interface';
 import { ProfileService } from './profile.service';
+import { JwtOptionalGuard } from '../auth/jwt-optional.guard';
 
 @Controller('profiles')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @Get(':username')
+  @UseGuards(JwtOptionalGuard)
   async getProfile(
     @Param('username') username: string,
-    @JwtToken() token: string | null,
+    @Req() req,
   ): Promise<ProfileRO> {
-    return this.profileService.getProfile(username, token);
+    return this.profileService.getProfile(username, req.user);
   }
 
   @Post(':username/follow')

@@ -8,16 +8,18 @@ import { ProfileRO } from './profile.interface';
 
 @Injectable()
 export class ProfileService {
-  constructor(
-    private readonly userService: UserService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
   async getProfile(
-    username: string,
-    token: string | UserEntity | null,
+    searchKey: string | number,
+    user?: UserEntity | null,
   ): Promise<ProfileRO> {
-    const userBeingChecked = await this.userService.findOne({ username });
+    const findOpt =
+      typeof searchKey === 'string'
+        ? { username: searchKey }
+        : { id: searchKey };
+    const userBeingChecked = await this.userService.findOne(findOpt);
+
     if (userBeingChecked === undefined) {
       return {
         profile: null,
@@ -25,21 +27,8 @@ export class ProfileService {
     }
 
     let userIdChecking: number;
-    if (typeof token === 'string') {
-      // use exception filter here?
-      // handle exception when token verification fail, throw other exceptions
-      try {
-        userIdChecking = ((await this.jwtService.verifyAsync(
-          token,
-        )) as JwtPayload).userId;
-      } catch (e) {
-        throw new HttpException(
-          { errors: { profile: 'Get profile with Invalid token ' } },
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-    } else if (token instanceof UserEntity) {
-      userIdChecking = token.id;
+    if (user instanceof UserEntity) {
+      userIdChecking = user.id;
     }
 
     const following =
