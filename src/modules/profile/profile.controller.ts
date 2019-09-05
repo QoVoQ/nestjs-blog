@@ -9,7 +9,7 @@ import {
 import { JwtToken, User } from 'src/decorators';
 import { AuthGuard } from '@nestjs/passport';
 import { ProfileRO } from './profile.interface';
-import { ProfileService } from '.';
+import { ProfileService } from './profile.service';
 
 @Controller('profiles')
 export class ProfileController {

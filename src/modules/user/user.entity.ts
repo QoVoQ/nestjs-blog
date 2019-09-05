@@ -11,7 +11,7 @@ import {
 import { Exclude, Expose, plainToClass } from 'class-transformer';
 import { IsNotEmpty, IsEmail } from 'class-validator';
 import { hashPassword } from 'src/shared/utils';
-import { ProfileRO } from '../profile';
+import { ProfileRO } from '../profile/profile.interface';
 import { ArticleEntity } from '../article/article.entity';
 
 // every property of UserEntityRO should have @Expose() decorate in UserEntity

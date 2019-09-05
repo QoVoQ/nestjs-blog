@@ -1,9 +1,9 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ArticleEntity } from './article.entity';
-import { Repository } from 'typeorm';
-import { TagService } from '../tag';
+import { Repository, DeleteResult } from 'typeorm';
+import { TagService } from '../tag/tag.service';
 import { UserEntity } from '../user/user.entity';
-import { CreateArticleDto } from './dto';
+import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleRO } from './article.interface';
 
 export class ArticleService {
@@ -13,15 +13,16 @@ export class ArticleService {
     private readonly tagService: TagService,
   ) {}
 
-  async findBySlug(slug: string): Promise<ArticleRO> {
+  async findBySlug(slug: string, userId?: number): Promise<ArticleRO> {
     const article = await this.articleRepository.findOneOrFail({ slug });
-    return {} as ArticleRO;
+
+    return this.getRO(article, userId);
   }
 
   async create(
     user: UserEntity,
     { title, body, description, tagList }: CreateArticleDto,
-  ) {
+  ): Promise<ArticleRO> {
     const article = new ArticleEntity();
     article.title = title;
     article.body = body;
@@ -32,7 +33,27 @@ export class ArticleService {
       await this.tagService.saveTags(tagList);
     }
 
-    return this.articleRepository.save(article);
+    await this.articleRepository.save(article);
+
+    return article.buildRO(false);
+  }
+
+  async update(
+    userId: number,
+    slug: string,
+    updateArticleDto: UpdateArticleDto,
+  ): Promise<ArticleRO> {
+    const article = await this.articleRepository.findOneOrFail({ slug });
+
+    delete article.title;
+    Object.assign(article, updateArticleDto);
+    const newArticle = await this.articleRepository.save(article);
+
+    return this.getRO(newArticle, userId);
+  }
+
+  async delete(slug: string): Promise<DeleteResult> {
+    return this.articleRepository.delete({ slug });
   }
 
   async checkUserLikeArticle(
@@ -49,5 +70,17 @@ export class ArticleService {
     }
 
     return false;
+  }
+
+  private async getRO(
+    article: ArticleEntity,
+    userId?: number,
+  ): Promise<ArticleRO> {
+    const favorited =
+      typeof userId === 'number'
+        ? await this.checkUserLikeArticle(userId, article.id)
+        : false;
+
+    return article.buildRO(favorited);
   }
 }
