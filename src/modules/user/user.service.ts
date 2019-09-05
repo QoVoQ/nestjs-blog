@@ -4,7 +4,6 @@ import { Repository, DeleteResult, FindConditions } from 'typeorm';
 import { hashPassword } from 'src/shared/utils';
 import { UserEntity } from './user.entity';
 import { LoginUserDto, CreateUserDto, UpdateUserDto } from './dto';
-import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService {

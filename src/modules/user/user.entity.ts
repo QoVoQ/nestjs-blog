@@ -27,8 +27,8 @@ export interface UserRO {
   user: UserData;
 }
 
-@Entity('user')
 @Exclude()
+@Entity('user')
 export class UserEntity {
   @PrimaryGeneratedColumn()
   id: number;

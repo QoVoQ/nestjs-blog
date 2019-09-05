@@ -2,7 +2,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ArticleEntity } from './article.entity';
 import { Repository } from 'typeorm';
 import { TagService } from '../tag';
-import { UserEntity } from '../user';
+import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto } from './dto';
 import { ArticleRO } from './article.interface';
 
@@ -15,7 +15,7 @@ export class ArticleService {
 
   async findBySlug(slug: string): Promise<ArticleRO> {
     const article = await this.articleRepository.findOneOrFail({ slug });
-    // return article.buildRO();
+    return {} as ArticleRO;
   }
 
   async create(

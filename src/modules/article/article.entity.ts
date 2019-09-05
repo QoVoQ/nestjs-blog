@@ -12,8 +12,8 @@ import {
   BeforeUpdate,
 } from 'typeorm';
 import slug from 'slug';
-import { UserEntity } from '../user';
-import { TagEntity } from '../tag';
+import { UserEntity } from '../user/user.entity';
+import { TagEntity } from '../tag/tag.entity';
 import { Expose, Exclude, plainToClass } from 'class-transformer';
 import { ArticleRO } from './article.interface';
 

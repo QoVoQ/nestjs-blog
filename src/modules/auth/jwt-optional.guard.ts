@@ -8,7 +8,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { jwtFromRequest } from './constants';
 import { JwtPayload } from './auth.interface';
-import { UserService, UserEntity } from '../user';
+import { UserService } from '../user';
+import { UserEntity } from '../user/user.entity';
 
 @Injectable()
 export class JwtOptionalGuard implements CanActivate {
