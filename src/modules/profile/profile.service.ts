@@ -3,7 +3,7 @@ import { UserService } from '../user/user.service';
 import { UserEntity } from '../user/user.entity';
 import { UserNotFoundException } from 'src/exceptions/user-not-found.exception';
 import { JwtService } from '@nestjs/jwt';
-import { JwtPayload } from '../auth/jwt.strategy';
+import { JwtPayload } from '../auth';
 import { ProfileRO } from './profile.interface';
 
 @Injectable()

@@ -5,24 +5,19 @@ import { hashPassword } from 'src/shared/utils';
 import { UserEntity } from './user.entity';
 import { LoginUserDto, CreateUserDto, UpdateUserDto } from './dto';
 import { JwtService } from '@nestjs/jwt';
-import { UserNotFoundException } from 'src/exceptions/user-not-found.exception';
-import { ProfileRO } from '../profile/profile.interface';
-import { JwtPayload } from '../auth/jwt.strategy';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-
-    private readonly jwtService: JwtService,
   ) {}
   async findAll(): Promise<UserEntity[]> {
     return this.userRepository.find();
   }
 
   async findById(id: number): Promise<UserEntity> {
-    const user = await this.userRepository.findOne(id);
+    const user = await this.userRepository.findOneOrFail(id);
     return user;
   }
 
