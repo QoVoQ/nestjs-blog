@@ -1,11 +1,11 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-export class ArticleEditPermissionException extends HttpException {
+export class EditPermissionException extends HttpException {
   constructor() {
     super(
       {
         errors: {
-          article: `Only author can edit their article`,
+          msg: `Only author can edit their content`,
         },
       },
       HttpStatus.FORBIDDEN,

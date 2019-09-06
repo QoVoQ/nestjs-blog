@@ -418,6 +418,50 @@ describe('AppController (e2e)', () => {
     });
   });
 
+  describe('Comment Module', () => {
+    describe('POST /articles/:slug/comment', () => {
+      const createComment = async (
+        article: TestArticleHelper,
+        user: TestUserInfoHelper,
+        msg: string = 'This is a comment' + new Date(),
+        following: boolean = false,
+      ) => {
+        const body = msg;
+        return request(server)
+          .post(`/articles/${article.info.slugReal}/comments`)
+          .set(user.getAuthHeader())
+          .send({ comment: { body } })
+          .expect(HttpStatus.CREATED)
+          .then(res => {
+            article.validateCommentRO(expect, res, user, {
+              following,
+              body,
+            });
+          });
+      };
+      it('should success', () => {
+        return Promise.all([
+          createComment(user1Article2, user2, undefined, false),
+          createComment(user1Article2, user1, undefined, false),
+        ]);
+      });
+
+      it('should get 401 without authentication', () => {
+        return request(server)
+          .post(`/articles/${user1Article2.info.slugReal}/comments`)
+          .send({ comment: { body: 'Hello' } })
+          .expect(HttpStatus.UNAUTHORIZED);
+      });
+      it('should get 422 with invalid input', () => {
+        return request(server)
+          .post(`/articles/${user1Article2.info.slugReal}/comments`)
+          .set(user2.getAuthHeader())
+          .send({ comment: { body: 342 } })
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+    });
+  });
+
   describe('Tag module', () => {
     it('GET /tags', () => {
       return request(server)

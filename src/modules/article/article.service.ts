@@ -6,7 +6,7 @@ import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleRO } from './article.interface';
 import { ProfileService } from '../profile/profile.service';
-import { ArticleEditPermissionException } from 'src/exceptions/article-edit-permission.exception';
+import { EditPermissionException } from 'src/exceptions/edit-permission.exception';
 
 export class ArticleService {
   constructor(
@@ -19,7 +19,6 @@ export class ArticleService {
   ) {}
 
   async findBySlug(slug: string, user?: UserEntity): Promise<ArticleRO> {
-    console.log(slug);
     const article = await this.articleRepository.findOne({ slug });
 
     return this.getRO(article, user);
@@ -53,7 +52,7 @@ export class ArticleService {
     const article = await this.articleRepository.findOneOrFail({ slug });
 
     if (user.id !== article.authorId) {
-      throw new ArticleEditPermissionException();
+      throw new EditPermissionException();
     }
 
     delete article.title;
@@ -68,7 +67,7 @@ export class ArticleService {
     const article = await this.articleRepository.findOneOrFail({ slug });
 
     if (user.id !== article.authorId) {
-      throw new ArticleEditPermissionException();
+      throw new EditPermissionException();
     }
 
     return this.articleRepository.delete({ slug });

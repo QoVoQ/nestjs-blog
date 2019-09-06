@@ -3,6 +3,7 @@ import slugify from '@sindresorhus/slugify';
 import { Chance } from 'chance';
 import { ArticleRO } from 'src/modules/article/article.interface';
 import { UpdateArticleDto } from 'src/modules/article/dto';
+import { Profile } from 'src/modules/profile/profile.interface';
 const chance = new Chance();
 let id = 0;
 export interface ArticleInfo {
@@ -119,6 +120,21 @@ export class TestArticleHelper {
     if (info.title) {
       this.setTitle(info.title);
     }
+  }
+
+  validateCommentRO(
+    expect: jest.Expect,
+    res: any,
+    user: TestUserInfoHelper,
+    { following = false, body }: { following: boolean; body: string },
+  ) {
+    expect(res).toHaveProperty('body.comment');
+    const resBody = res.body.comment.body;
+    const author: Profile = res.body.comment.author;
+    expect(resBody).toBe(body);
+    expect(author.username).toBe(user.userInfo.username);
+    expect(author.following).toBe(following);
+    // @TODO validate createdAt & updatedAt
   }
 }
 

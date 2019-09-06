@@ -13,6 +13,7 @@ import { IsNotEmpty, IsEmail } from 'class-validator';
 import { hashPassword } from 'src/shared/utils';
 import { ProfileRO } from '../profile/profile.interface';
 import { ArticleEntity } from '../article/article.entity';
+import { CommentEntity } from '../comment/comment.entity';
 
 // every property of UserEntityRO should have @Expose() decorate in UserEntity
 export interface UserEntityRO {
@@ -98,6 +99,9 @@ export class UserEntity {
     },
   })
   favorites: ArticleEntity[];
+
+  @OneToMany(type => CommentEntity, comment => comment.author)
+  comments: CommentEntity[];
 
   private static buildEntityRO(user: UserEntity): UserEntityRO {
     return plainToClass(UserEntity, user, {

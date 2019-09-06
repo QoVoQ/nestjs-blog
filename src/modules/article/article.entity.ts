@@ -17,6 +17,7 @@ import { TagEntity } from '../tag/tag.entity';
 import { Expose, Exclude, plainToClass, Type } from 'class-transformer';
 import { ArticleRO } from './article.interface';
 import { Profile } from '../profile/profile.interface';
+import { CommentEntity } from '../comment/comment.entity';
 
 @Entity('article')
 @Exclude()
@@ -103,6 +104,9 @@ export class ArticleEntity {
 
   @ManyToOne(type => UserEntity, user => user.articles)
   author: UserEntity;
+
+  @OneToMany(type => CommentEntity, comment => comment.article)
+  comments: CommentEntity[];
 
   buildRO(
     this: ArticleEntity,
