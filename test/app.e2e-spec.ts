@@ -304,6 +304,14 @@ describe('AppController (e2e)', () => {
           .send({ body: 123 })
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
       });
+
+      it('should get 422 with non exit article', () => {
+        return request(server)
+          .put(`/articles/non-exist-article`)
+          .set(user1.getAuthHeader())
+          .send({ body: '123' })
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
     });
 
     describe('DELETE /article/:slug', () => {
@@ -329,9 +337,9 @@ describe('AppController (e2e)', () => {
           .expect(HttpStatus.UNAUTHORIZED);
       });
 
-      it('should get 422 with invalid input', () => {
+      it('should get 422 with non-exit article', () => {
         return request(server)
-          .delete(`/articles/${user1Article1.info.slugReal}`)
+          .delete(`/articles/no-exits-article`)
           .set(user1.getAuthHeader())
           .expect(HttpStatus.UNPROCESSABLE_ENTITY)
           .then(res => {
