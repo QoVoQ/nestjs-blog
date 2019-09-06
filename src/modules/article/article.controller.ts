@@ -8,6 +8,7 @@ import {
   Put,
   Delete,
   Req,
+  UseFilters,
 } from '@nestjs/common';
 import { ArticleService } from './article.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -18,7 +19,6 @@ import { ArticleRO } from './article.interface';
 import { JwtOptionalGuard } from '../auth/jwt-optional.guard';
 import { Request } from 'express';
 import { UserEntity } from '../user/user.entity';
-import { CreateUserDto } from '../user/dto';
 
 @Controller('articles')
 export class ArticleController {
@@ -55,7 +55,7 @@ export class ArticleController {
 
   @Delete(':slug')
   @UseGuards(AuthGuard('jwt'))
-  async delete(@Param('slug') slug: string) {
-    return this.articleService.delete(slug);
+  async delete(@User() user, @Param('slug') slug: string) {
+    return this.articleService.delete(user, slug);
   }
 }

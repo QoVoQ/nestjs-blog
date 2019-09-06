@@ -6,6 +6,8 @@ import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleRO } from './article.interface';
 import { ProfileService } from '../profile/profile.service';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import { ArticleEditPermissionException } from 'src/exceptions/article-edit-permission.exception';
 
 export class ArticleService {
   constructor(
@@ -16,7 +18,7 @@ export class ArticleService {
   ) {}
 
   async findBySlug(slug: string, user?: UserEntity): Promise<ArticleRO> {
-    const article = await this.articleRepository.findOneOrFail({ slug });
+    const article = await this.articleRepository.findOne({ slug });
 
     return this.getRO(article, user);
   }
@@ -48,6 +50,10 @@ export class ArticleService {
   ): Promise<ArticleRO> {
     const article = await this.articleRepository.findOneOrFail({ slug });
 
+    if (user.id !== article.authorId) {
+      throw new ArticleEditPermissionException();
+    }
+
     delete article.title;
     Object.assign(article, updateArticleDto);
     const newArticle = await this.articleRepository.save(article);
@@ -55,7 +61,13 @@ export class ArticleService {
     return this.getRO(newArticle, user);
   }
 
-  async delete(slug: string): Promise<DeleteResult> {
+  async delete(user: UserEntity, slug: string): Promise<DeleteResult> {
+    const article = await this.articleRepository.findOneOrFail({ slug });
+
+    if (user.id !== article.authorId) {
+      throw new ArticleEditPermissionException();
+    }
+
     return this.articleRepository.delete({ slug });
   }
 
@@ -79,6 +91,10 @@ export class ArticleService {
     article: ArticleEntity,
     user?: UserEntity,
   ): Promise<ArticleRO> {
+    if (!article) {
+      return { article: null };
+    }
+
     const favorited =
       user instanceof UserEntity
         ? await this.checkUserLikeArticle(user.id, article.id)

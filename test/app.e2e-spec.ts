@@ -2,32 +2,39 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AppTestModule } from './modules/app-test.module';
 import { TestUserInfoHelper } from './helpers/test-user-info-helper';
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, INestApplication } from '@nestjs/common';
 import { TestArticleHelper } from './helpers/test-article-helper';
 import { UpdateArticleDto } from 'src/modules/article/dto';
+import { globalSetting } from 'src/app.global-setting';
+
+let moduleFixture: TestingModule;
+let app: INestApplication;
+let server;
+let user1;
+let user2;
+let user1Article1;
+
+beforeAll(async () => {
+  user1 = new TestUserInfoHelper();
+  user2 = new TestUserInfoHelper();
+  user1Article1 = new TestArticleHelper(user1);
+
+  moduleFixture = await Test.createTestingModule({
+    imports: [AppTestModule],
+  }).compile();
+
+  app = moduleFixture.createNestApplication();
+  globalSetting(app);
+
+  server = app.getHttpServer();
+  await app.init();
+});
+
+afterAll(async () => {
+  app.close();
+});
 
 describe('AppController (e2e)', () => {
-  let app;
-  let server;
-
-  const user1 = new TestUserInfoHelper();
-  const user2 = new TestUserInfoHelper();
-  const user1Article1 = new TestArticleHelper(user1);
-
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppTestModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    server = app.getHttpServer();
-    await app.init();
-  });
-
-  afterAll(async () => {
-    app.close();
-  });
-
   it('/ (GET)', () => {
     return request(app.getHttpServer())
       .get('/')
@@ -114,14 +121,17 @@ describe('AppController (e2e)', () => {
     describe('Profile Related API', () => {
       describe('GET /profiles/:username', () => {
         it('Get self profile should get valid profileRO', () => {
-          return request(server)
-            .get(`/profiles/${user1.userInfo.username}`)
-            .set(user1.getAuthHeader())
-            .send()
-            .expect(HttpStatus.OK)
-            .then(res => {
-              expect(res.body).toEqual(user1.getProfileRO(false));
-            });
+          const getProfile = async user => {
+            return request(server)
+              .get(`/profiles/${user.userInfo.username}`)
+              .set(user.getAuthHeader())
+              .send()
+              .expect(HttpStatus.OK)
+              .then(res => {
+                expect(res.body).toEqual(user.getProfileRO(false));
+              });
+          };
+          return Promise.all([getProfile(user1), getProfile(user2)]);
         });
 
         it('Get profile without authentication should get valid profileRO', () => {
@@ -157,6 +167,17 @@ describe('AppController (e2e)', () => {
               expect(res.body).toEqual(user2.getProfileRO(true));
             });
         });
+
+        it('Following:  profile(following) should update', () => {
+          return request(server)
+            .post(`/profiles/${user1.userInfo.username}/follow`)
+            .set(user2.getAuthHeader())
+            .send()
+            .expect(HttpStatus.CREATED)
+            .then(res => {
+              expect(res.body).toEqual(user1.getProfileRO(true));
+            });
+        });
       });
 
       describe('DELETE /profiles/:username/follow', () => {
@@ -179,17 +200,6 @@ describe('AppController (e2e)', () => {
             .expect(HttpStatus.OK)
             .then(res => {
               expect(res.body).toEqual(user2.getProfileRO(false));
-            });
-        });
-
-        it('Following:  profile(following) should update', () => {
-          return request(server)
-            .post(`/profiles/${user2.userInfo.username}/follow`)
-            .set(user1.getAuthHeader())
-            .send()
-            .expect(HttpStatus.CREATED)
-            .then(res => {
-              expect(res.body).toEqual(user2.getProfileRO(true));
             });
         });
       });
@@ -225,6 +235,36 @@ describe('AppController (e2e)', () => {
       });
     });
 
+    describe('GET /articles/:slug : Get article by slug', () => {
+      it('should success with valid article slug', () => {
+        return request(server)
+          .get(`/articles/${user1Article1.info.slugReal}`)
+          .expect(HttpStatus.OK)
+          .then(res => {
+            user1Article1.validateArticleRO(expect, res);
+          });
+      });
+
+      it('should fail with invalid article slug', () => {
+        return request(server)
+          .get(`/articles/sdklwer`)
+          .expect(HttpStatus.OK)
+          .then(res => {
+            expect(res.body.article).toBeNull();
+          });
+      });
+
+      it('property "author.following" should be true for user2 following user1', () => {
+        return request(server)
+          .get(`/articles/${user1Article1.info.slugReal}`)
+          .set(user2.getAuthHeader())
+          .expect(HttpStatus.OK)
+          .then(res => {
+            user1Article1.validateArticleRO(expect, res, { following: true });
+          });
+      });
+    });
+
     describe('PUT /articles/:slug Update article', () => {
       it('should success with authentication and valid input', () => {
         const updateDto: UpdateArticleDto = {
@@ -249,6 +289,14 @@ describe('AppController (e2e)', () => {
           .expect(HttpStatus.UNAUTHORIZED);
       });
 
+      it('should get 403 with non-author authentication ', () => {
+        return request(server)
+          .put(`/articles/${user1Article1.info.slugReal}`)
+          .set(user2.getAuthHeader())
+          .send({ title: 'new Title' })
+          .expect(HttpStatus.FORBIDDEN);
+      });
+
       it('should get 422 with invalid input', () => {
         return request(server)
           .put(`/articles/${user1Article1.info.slugReal}`)
@@ -259,6 +307,12 @@ describe('AppController (e2e)', () => {
     });
 
     describe('DELETE /article/:slug', () => {
+      it('should fail with non-author authentication', () => {
+        return request(server)
+          .delete(`/articles/${user1Article1.info.slugReal}`)
+          .set(user2.getAuthHeader())
+          .expect(HttpStatus.FORBIDDEN);
+      });
       it('should success with authentication and valid input', () => {
         return request(server)
           .delete(`/articles/${user1Article1.info.slugReal}`)
@@ -279,11 +333,22 @@ describe('AppController (e2e)', () => {
         return request(server)
           .delete(`/articles/${user1Article1.info.slugReal}`)
           .set(user1.getAuthHeader())
-          .expect(HttpStatus.OK)
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY)
           .then(res => {
-            expect(res.body.affected).toBe(0);
+            expect(res.body).toHaveProperty('errors');
           });
       });
+    });
+  });
+
+  describe('Tag module', () => {
+    it('GET /tags', () => {
+      return request(server)
+        .get('/tags')
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body.tags.length).toBeGreaterThan(2);
+        });
     });
   });
 });
