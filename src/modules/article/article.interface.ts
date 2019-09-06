@@ -10,7 +10,7 @@ export interface ArticleRO {
     createdAt: Date;
     updatedAt: Date;
     favorited: boolean;
-    favoriteCount: number;
+    favoritesCount: number;
     author: Profile;
   };
 }

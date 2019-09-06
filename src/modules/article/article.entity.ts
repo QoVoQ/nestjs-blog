@@ -67,16 +67,17 @@ export class ArticleEntity {
   @Expose()
   createdAt: Date;
 
-  @UpdateDateColumn({
+  @Column({
     name: 'updated_at',
     type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
   })
   @Expose()
   updatedAt: Date;
 
   @Column({ default: 0 })
   @Expose()
-  favoriteCount: number;
+  favoritesCount: number;
 
   @ManyToMany(type => TagEntity, { eager: true })
   @JoinTable({
@@ -124,5 +125,14 @@ export class ArticleEntity {
         author: authorProfile,
       },
     };
+  }
+
+  update(data: Partial<ArticleEntity>) {
+    // prevent re-slugify in @beforeUpdate
+    if (data.title === undefined) {
+      delete this.title;
+    }
+
+    Object.assign(this, data);
   }
 }

@@ -4,6 +4,7 @@ import { Chance } from 'chance';
 import { ArticleRO } from 'src/modules/article/article.interface';
 import { UpdateArticleDto } from 'src/modules/article/dto';
 const chance = new Chance();
+let id = 0;
 export interface ArticleInfo {
   slug: string;
   slugReal?: string;
@@ -14,13 +15,13 @@ export interface ArticleInfo {
   createdAt?: Date;
   updatedAt?: Date;
   favorited?: boolean;
-  favoriteCount?: number;
+  favoritesCount?: number;
   author?: any;
 }
 
 export interface ArticleROParam {
   favorited?: boolean;
-  favoriteCount?: number;
+  favoritesCount?: number;
   following?: boolean;
 }
 
@@ -32,12 +33,16 @@ export class TestArticleHelper {
       title: '',
       description: chance.paragraph({ sentences: 2 }).slice(0, 100),
       body: chance.paragraph({ sentences: 3 }),
-      tagList: Array(3)
-        .fill(0)
-        .map(i => chance.word({ length: 5 })),
+      tagList:
+        id % 2 === 0
+          ? Array(3)
+              .fill(0)
+              .map(i => chance.word())
+          : [],
     };
 
     this.setTitle(chance.sentence({ words: 5 }));
+    id++;
   }
 
   private setTitle(newTitle: string) {
@@ -56,7 +61,7 @@ export class TestArticleHelper {
 
   getArticleRO({
     favorited = false,
-    favoriteCount = 0,
+    favoritesCount = 0,
     following = false,
   }: ArticleROParam = {}): ArticleRO {
     const {
@@ -78,7 +83,7 @@ export class TestArticleHelper {
         createdAt: createdAt || new Date(),
         updatedAt: updatedAt || new Date(),
         favorited,
-        favoriteCount,
+        favoritesCount,
         author: this.author.getProfileRO(following).profile,
       },
     };
@@ -100,7 +105,7 @@ export class TestArticleHelper {
       'body',
       'tagList',
       'favorited',
-      'favoriteCount',
+      'favoritesCount',
       'author',
     ];
     exactMatch(expect, resArticle, expectArticle, exactMatchKeys);

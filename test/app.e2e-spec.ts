@@ -3,21 +3,28 @@ import * as request from 'supertest';
 import { AppTestModule } from './modules/app-test.module';
 import { TestUserInfoHelper } from './helpers/test-user-info-helper';
 import { HttpStatus, INestApplication } from '@nestjs/common';
-import { TestArticleHelper } from './helpers/test-article-helper';
+import {
+  TestArticleHelper,
+  ArticleROParam,
+} from './helpers/test-article-helper';
 import { UpdateArticleDto } from 'src/modules/article/dto';
 import { globalSetting } from 'src/app.global-setting';
 
 let moduleFixture: TestingModule;
 let app: INestApplication;
 let server;
-let user1;
-let user2;
-let user1Article1;
+let user1: TestUserInfoHelper;
+let user2: TestUserInfoHelper;
+let user1Article1: TestArticleHelper;
+let user1Article2: TestArticleHelper;
+let user1Article3: TestArticleHelper;
 
 beforeAll(async () => {
   user1 = new TestUserInfoHelper();
   user2 = new TestUserInfoHelper();
   user1Article1 = new TestArticleHelper(user1);
+  user1Article2 = new TestArticleHelper(user1);
+  user1Article3 = new TestArticleHelper(user1);
 
   moduleFixture = await Test.createTestingModule({
     imports: [AppTestModule],
@@ -209,14 +216,21 @@ describe('AppController (e2e)', () => {
   describe('Article Module', () => {
     describe('POST /articles: Create article', () => {
       it('should success with authentication and valid input', () => {
-        return request(server)
-          .post('/articles')
-          .set(user1.getAuthHeader())
-          .send(user1Article1.getCreateDto())
-          .expect(HttpStatus.CREATED)
-          .then(res => {
-            user1Article1.validateArticleRO(expect, res);
-          });
+        const createArticle = async (art: TestArticleHelper) =>
+          request(server)
+            .post('/articles')
+            .set(user1.getAuthHeader())
+            .send(art.getCreateDto())
+            .expect(HttpStatus.CREATED)
+            .then(res => {
+              art.validateArticleRO(expect, res);
+            });
+
+        return Promise.all([
+          createArticle(user1Article1),
+          createArticle(user1Article2),
+          createArticle(user1Article3),
+        ]);
       });
 
       it('should get 401 without authentication ', () => {
@@ -345,6 +359,61 @@ describe('AppController (e2e)', () => {
           .then(res => {
             expect(res.body).toHaveProperty('errors');
           });
+      });
+    });
+
+    describe('Favorite && Unfavorite', () => {
+      describe('POST /articles/:slug/favorite', () => {
+        const favoriteFn = async (
+          article: TestArticleHelper,
+          user: TestUserInfoHelper,
+          expectResult: ArticleROParam,
+        ) => {
+          return request(server)
+            .post(`/articles/${article.info.slugReal}/favorite`)
+            .set((user && user.getAuthHeader()) || undefined)
+            .expect(HttpStatus.CREATED)
+            .then(res => {
+              article.validateArticleRO(expect, res, expectResult);
+            });
+        };
+        it('"favouritesCount" & "favorited" should update after favorite', () => {
+          return favoriteFn(user1Article2, user2, {
+            favorited: true,
+            favoritesCount: 1,
+            following: true,
+          }).then(() =>
+            favoriteFn(user1Article2, user1, {
+              favorited: true,
+              favoritesCount: 2,
+              following: false,
+            }),
+          );
+        });
+        it('should not fail favorite the same article', () => {
+          return favoriteFn(user1Article2, user2, {
+            favorited: true,
+            favoritesCount: 2,
+            following: true,
+          });
+        });
+        it('should get 401 without authentication', () => {
+          return request(server)
+            .post(`/articles/${user1Article2.info.slugReal}/favorite`)
+            .expect(HttpStatus.UNAUTHORIZED);
+        });
+        it('should get 422 when article does not exit', () => {
+          return request(server)
+            .post(`/articles/no-exits-article/favorite`)
+            .set(user1.getAuthHeader())
+            .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+        });
+      });
+      describe('DELETE /articles/:slug', () => {
+        it('"favouritesCount" & "favorited" should update after unfavorite', () => {});
+        it('should not fail unfavorite the same article', () => {});
+        it('should get 401 without authentication', () => {});
+        it('should get 422 when article does not exit', () => {});
       });
     });
   });

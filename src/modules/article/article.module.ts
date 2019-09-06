@@ -6,10 +6,11 @@ import { ArticleService } from './article.service';
 import { ArticleController } from './article.controller';
 import { AuthModule } from '../auth/auth.module';
 import { ProfileModule } from '../profile/profile.module';
+import { UserEntity } from '../user/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ArticleEntity]),
+    TypeOrmModule.forFeature([ArticleEntity, UserEntity]),
     TagModule,
     AuthModule,
     ProfileModule,

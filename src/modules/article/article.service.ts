@@ -6,18 +6,20 @@ import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleRO } from './article.interface';
 import { ProfileService } from '../profile/profile.service';
-import { HttpException, HttpStatus } from '@nestjs/common';
 import { ArticleEditPermissionException } from 'src/exceptions/article-edit-permission.exception';
 
 export class ArticleService {
   constructor(
     @InjectRepository(ArticleEntity)
     private readonly articleRepository: Repository<ArticleEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
     private readonly tagService: TagService,
     private readonly profileService: ProfileService,
   ) {}
 
   async findBySlug(slug: string, user?: UserEntity): Promise<ArticleRO> {
+    console.log(slug);
     const article = await this.articleRepository.findOne({ slug });
 
     return this.getRO(article, user);
@@ -40,7 +42,7 @@ export class ArticleService {
 
     await this.articleRepository.save(article);
 
-    return this.getRO(article, user);
+    return this.getRO(article, user, false);
   }
 
   async update(
@@ -56,6 +58,7 @@ export class ArticleService {
 
     delete article.title;
     Object.assign(article, updateArticleDto);
+    article.updatedAt = new Date();
     const newArticle = await this.articleRepository.save(article);
 
     return this.getRO(newArticle, user);
@@ -87,16 +90,70 @@ export class ArticleService {
     return false;
   }
 
+  async favorite(user: UserEntity, slug: string): Promise<ArticleRO> {
+    const article = await this.articleRepository.findOneOrFail({ slug });
+    const isFavorite = await this.checkUserLikeArticle(user.id, article.id);
+    if (isFavorite) {
+      return this.getRO(article, user, isFavorite);
+    }
+
+    await this.userRepository
+      .createQueryBuilder()
+      .relation('favorites')
+      .of(user.id)
+      .add(article.id);
+
+    const updateResult = await this.articleRepository.increment(
+      { id: article.id },
+      'favoritesCount',
+      1,
+    );
+
+    if (updateResult.raw.changedRows >= 1) {
+      article.favoritesCount += 1;
+    }
+    return this.getRO(article, user);
+  }
+
+  async unfavorite(user: UserEntity, slug: string) {
+    const article = await this.articleRepository.findOneOrFail({ slug });
+    const isFavorite = await this.checkUserLikeArticle(user.id, article.id);
+    if (!isFavorite) {
+      return this.getRO(article, user, isFavorite);
+    }
+
+    await this.userRepository
+      .createQueryBuilder()
+      .relation('favorites')
+      .of(user.id)
+      .remove(article.id);
+
+    const updateResult = await this.articleRepository.decrement(
+      { id: article.id },
+      'favoritesCount',
+      1,
+    );
+
+    if (updateResult.raw.changedRows >= 1) {
+      article.favoritesCount -= 1;
+    }
+
+    return this.getRO(article, user);
+  }
+
   private async getRO(
     article: ArticleEntity,
     user?: UserEntity,
+    favorited?: boolean,
   ): Promise<ArticleRO> {
     if (!article) {
       return { article: null };
     }
 
-    const favorited =
-      user instanceof UserEntity
+    favorited =
+      typeof favorited === 'boolean'
+        ? favorited
+        : user instanceof UserEntity
         ? await this.checkUserLikeArticle(user.id, article.id)
         : false;
 
