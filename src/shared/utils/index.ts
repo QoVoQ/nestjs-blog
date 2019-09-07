@@ -8,3 +8,14 @@ export async function delay(time = 200) {
     setTimeout(r, time);
   });
 }
+
+export async function runSequentially(
+  promiseFactories: Array<(...args) => Promise<any>>,
+): Promise<any> {
+  const promises = [];
+  for (const factory of promiseFactories) {
+    const p = await factory();
+    promises.push(p);
+  }
+  return Promise.all(promises);
+}

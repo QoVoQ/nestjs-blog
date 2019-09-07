@@ -4,8 +4,9 @@ import { Chance } from 'chance';
 import { ArticleRO } from 'src/modules/article/article.interface';
 import { UpdateArticleDto } from 'src/modules/article/dto';
 import { Profile } from 'src/modules/profile/profile.interface';
+import { TestCommentHelper } from './test-comment-helper';
 const chance = new Chance();
-let id = 0;
+let uid = 0;
 export interface ArticleInfo {
   slug: string;
   slugReal?: string;
@@ -28,14 +29,19 @@ export interface ArticleROParam {
 
 export class TestArticleHelper {
   info: ArticleInfo;
-  constructor(private readonly author: TestUserInfoHelper) {
+  comments: TestCommentHelper[] = [];
+  favoritedBy: TestUserInfoHelper[] = [];
+  constructor(
+    public readonly author: TestUserInfoHelper,
+    public readonly id: string,
+  ) {
     this.info = {
       slug: '',
       title: '',
       description: chance.paragraph({ sentences: 2 }).slice(0, 100),
       body: chance.paragraph({ sentences: 3 }),
       tagList:
-        id % 2 === 0
+        uid % 2 === 0
           ? Array(3)
               .fill(0)
               .map(i => chance.word())
@@ -43,7 +49,9 @@ export class TestArticleHelper {
     };
 
     this.setTitle(chance.sentence({ words: 5 }));
-    id++;
+    uid++;
+    this.author = author;
+    this.id = id;
   }
 
   private setTitle(newTitle: string) {
@@ -88,6 +96,17 @@ export class TestArticleHelper {
         author: this.author.getProfileRO(following).profile,
       },
     };
+  }
+
+  getCommentById(id: string) {
+    return this.comments.find(c => c.id === id);
+  }
+
+  removeComment(comment: TestCommentHelper) {
+    const idx = this.comments.indexOf(comment);
+    if (idx !== -1) {
+      this.comments.splice(idx, 1);
+    }
   }
 
   validateArticleRO(

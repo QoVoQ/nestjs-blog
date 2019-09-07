@@ -9,24 +9,22 @@ import {
 } from './helpers/test-article-helper';
 import { UpdateArticleDto } from 'src/modules/article/dto';
 import { globalSetting } from 'src/app.global-setting';
-import { delay } from 'src/shared/utils';
+import { delay, runSequentially } from 'src/shared/utils';
+import { TestCommentHelper } from './helpers/test-comment-helper';
+import { playStroy } from './test-story';
 
 let moduleFixture: TestingModule;
 let app: INestApplication;
 let server;
-let user1: TestUserInfoHelper;
-let user2: TestUserInfoHelper;
-let user1Article1: TestArticleHelper;
-let user1Article2: TestArticleHelper;
-let user1Article3: TestArticleHelper;
+let roles: TestUserInfoHelper[];
+let writerRole: TestUserInfoHelper;
+let articles: TestArticleHelper[];
+let articleScience: TestArticleHelper;
+let comments: TestCommentHelper[];
+// PS: runtime error maybe swallowed here, won't log any error msg in console
+({ roles, articles, comments, writerRole, articleScience } = playStroy());
 
 beforeAll(async () => {
-  user1 = new TestUserInfoHelper();
-  user2 = new TestUserInfoHelper();
-  user1Article1 = new TestArticleHelper(user1);
-  user1Article2 = new TestArticleHelper(user1);
-  user1Article3 = new TestArticleHelper(user1);
-
   moduleFixture = await Test.createTestingModule({
     imports: [AppTestModule],
   }).compile();
@@ -69,11 +67,12 @@ describe('AppController (e2e)', () => {
           user.validateUserRO(expect, res);
         });
     it('POST /users: Register should return valid userRO', () => {
-      return Promise.all([registerFn(user1), registerFn(user2)]);
+      const factories = roles.map(role => () => registerFn(role));
+      return runSequentially(factories);
     });
 
     it('POST /users/login: Login should return valid userRO', () => {
-      return Promise.all([loginFn(user1), loginFn(user2)]);
+      return Promise.all(roles.map(role => loginFn(role)));
     });
 
     describe('GET /user: Get status', () => {
@@ -86,10 +85,10 @@ describe('AppController (e2e)', () => {
       it('Get status with token should return valid userRO', () => {
         return request(server)
           .get('/user')
-          .set(user1.getAuthHeader())
+          .set(roles[0].getAuthHeader())
           .expect(HttpStatus.OK)
           .then(res => {
-            user1.validateUserRO(expect, res);
+            roles[0].validateUserRO(expect, res);
           });
       });
     });
@@ -98,7 +97,7 @@ describe('AppController (e2e)', () => {
       it('Update with invalid params should return 422', () => {
         return request(server)
           .put('/user')
-          .set(user1.getAuthHeader())
+          .set(roles[0].getAuthHeader())
           .send({
             bio: 231,
           })
@@ -115,17 +114,16 @@ describe('AppController (e2e)', () => {
         };
         return request(server)
           .put('/user')
-          .set(user1.getAuthHeader())
+          .set(roles[2].getAuthHeader())
           .send(infoToUpdate)
           .expect(HttpStatus.OK)
           .then(res => {
-            user1.validateUserRO(expect, res, infoToUpdate);
+            roles[2].validateUserRO(expect, res, infoToUpdate);
 
-            return loginFn(user1);
+            return loginFn(roles[2]);
           });
       });
     });
-
     describe('Profile Related API', () => {
       describe('GET /profiles/:username', () => {
         it('Get self profile should get valid profileRO', () => {
@@ -139,76 +137,73 @@ describe('AppController (e2e)', () => {
                 expect(res.body).toEqual(user.getProfileRO(false));
               });
           };
-          return Promise.all([getProfile(user1), getProfile(user2)]);
+          return Promise.all([getProfile(roles[0]), getProfile(roles[1])]);
         });
 
         it('Get profile without authentication should get valid profileRO', () => {
           return request(server)
-            .get(`/profiles/${user1.userInfo.username}`)
+            .get(`/profiles/${roles[0].userInfo.username}`)
             .send()
             .expect(HttpStatus.OK)
             .then(res => {
-              expect(res.body).toEqual(user1.getProfileRO(false));
+              expect(res.body).toEqual(roles[0].getProfileRO(false));
             });
         });
       });
-
-      describe('POST /profiles/:username/follow', () => {
-        it('Following:  profile(following) should update', () => {
-          return request(server)
-            .post(`/profiles/${user2.userInfo.username}/follow`)
-            .set(user1.getAuthHeader())
+      describe('Follow & Unfollow', () => {
+        const followFn = async (follower, followee) =>
+          request(server)
+            .post(`/profiles/${followee.userInfo.username}/follow`)
+            .set(follower.getAuthHeader())
             .send()
             .expect(HttpStatus.CREATED)
             .then(res => {
-              expect(res.body).toEqual(user2.getProfileRO(true));
+              expect(res.body).toEqual(followee.getProfileRO(true));
             });
+
+        const followAll = () =>
+          Promise.all(
+            roles.map(follower => {
+              return Promise.all(
+                follower.followings.map(followee =>
+                  followFn(follower, followee),
+                ),
+              );
+            }),
+          );
+        describe('POST /profiles/:username/follow', () => {
+          it('Following:  profile(following) should update', () => {
+            return followAll();
+          });
+
+          it('Following: the same one twice should not throw error', () => {
+            return followAll();
+          });
         });
 
-        it('Following: the same one twice should not throw error', () => {
-          return request(server)
-            .post(`/profiles/${user2.userInfo.username}/follow`)
-            .set(user1.getAuthHeader())
-            .send()
-            .expect(HttpStatus.CREATED)
-            .then(res => {
-              expect(res.body).toEqual(user2.getProfileRO(true));
-            });
-        });
+        describe('DELETE /profiles/:username/follow', () => {
+          it('Unfollowing: profile(following) should update', () => {
+            return request(server)
+              .delete(`/profiles/${roles[1].userInfo.username}/follow`)
+              .set(roles[0].getAuthHeader())
+              .send()
+              .expect(HttpStatus.OK)
+              .then(res => {
+                expect(res.body).toEqual(roles[1].getProfileRO(false));
+                roles[0].unfollow(roles[1]);
+              });
+          });
 
-        it('Following:  profile(following) should update', () => {
-          return request(server)
-            .post(`/profiles/${user1.userInfo.username}/follow`)
-            .set(user2.getAuthHeader())
-            .send()
-            .expect(HttpStatus.CREATED)
-            .then(res => {
-              expect(res.body).toEqual(user1.getProfileRO(true));
-            });
-        });
-      });
-
-      describe('DELETE /profiles/:username/follow', () => {
-        it('Unfollowing: profile(following) should update', () => {
-          return request(server)
-            .delete(`/profiles/${user2.userInfo.username}/follow`)
-            .set(user1.getAuthHeader())
-            .send()
-            .expect(HttpStatus.OK)
-            .then(res => {
-              expect(res.body).toEqual(user2.getProfileRO(false));
-            });
-        });
-
-        it('Unfollowing: the same one twice should not throw error', () => {
-          return request(server)
-            .delete(`/profiles/${user2.userInfo.username}/follow`)
-            .set(user1.getAuthHeader())
-            .send()
-            .expect(HttpStatus.OK)
-            .then(res => {
-              expect(res.body).toEqual(user2.getProfileRO(false));
-            });
+          it('Unfollowing: the same one twice should not throw error', () => {
+            return request(server)
+              .delete(`/profiles/${roles[1].userInfo.username}/follow`)
+              .set(roles[0].getAuthHeader())
+              .send()
+              .expect(HttpStatus.OK)
+              .then(res => {
+                expect(res.body).toEqual(roles[1].getProfileRO(false));
+              });
+          });
         });
       });
     });
@@ -217,34 +212,31 @@ describe('AppController (e2e)', () => {
   describe('Article Module', () => {
     describe('POST /articles: Create article', () => {
       it('should success with authentication and valid input', () => {
-        const createArticle = async (art: TestArticleHelper) =>
-          request(server)
+        const createArticle = async (art: TestArticleHelper) => {
+          const { author } = art;
+          return request(server)
             .post('/articles')
-            .set(user1.getAuthHeader())
+            .set(author.getAuthHeader())
             .send(art.getCreateDto())
             .expect(HttpStatus.CREATED)
             .then(res => {
               art.validateArticleRO(expect, res);
             });
-
-        return Promise.all([
-          createArticle(user1Article1),
-          createArticle(user1Article2),
-          createArticle(user1Article3),
-        ]);
+        };
+        const factories = articles.map(art => () => createArticle(art));
+        return runSequentially(factories);
       });
-
       it('should get 401 without authentication ', () => {
         return request(server)
           .post('/articles')
-          .send(user1Article1.getCreateDto())
+          .send(articles[0].getCreateDto())
           .expect(HttpStatus.UNAUTHORIZED);
       });
 
       it('should get 422 with invalid input', () => {
         return request(server)
           .post('/articles')
-          .set(user1.getAuthHeader())
+          .set(roles[0].getAuthHeader())
           .send({ title: 123 })
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
       });
@@ -253,10 +245,10 @@ describe('AppController (e2e)', () => {
     describe('GET /articles/:slug : Get article by slug', () => {
       it('should success with valid article slug', () => {
         return request(server)
-          .get(`/articles/${user1Article1.info.slugReal}`)
+          .get(`/articles/${articles[0].info.slugReal}`)
           .expect(HttpStatus.OK)
           .then(res => {
-            user1Article1.validateArticleRO(expect, res);
+            articles[0].validateArticleRO(expect, res);
           });
       });
 
@@ -269,53 +261,55 @@ describe('AppController (e2e)', () => {
           });
       });
 
-      it('property "author.following" should be true for user2 following user1', () => {
+      it('property "author.following" should be true for roles[1] following writerRole', () => {
+        const work = writerRole.works[0];
         return request(server)
-          .get(`/articles/${user1Article1.info.slugReal}`)
-          .set(user2.getAuthHeader())
+          .get(`/articles/${work.info.slugReal}`)
+          .set(roles[1].getAuthHeader())
           .expect(HttpStatus.OK)
           .then(res => {
-            user1Article1.validateArticleRO(expect, res, { following: true });
+            work.validateArticleRO(expect, res, { following: true });
           });
       });
     });
-
     describe('PUT /articles/:slug Update article', () => {
+      const updateDto: UpdateArticleDto = {
+        title: 'Updated title',
+        description: 'new desc',
+        body: 'Long long body',
+      };
+      const author = roles[0];
+      const workToUpdate = author.works[0];
       it('should success with authentication and valid input', () => {
-        const updateDto: UpdateArticleDto = {
-          title: 'Updated title',
-          description: 'new desc',
-          body: 'Long long body',
-        };
         return request(server)
-          .put(`/articles/${user1Article1.info.slugReal}`)
-          .set(user1.getAuthHeader())
+          .put(`/articles/${workToUpdate.info.slugReal}`)
+          .set(author.getAuthHeader())
           .send(updateDto)
           .expect(HttpStatus.OK)
           .then(res => {
-            user1Article1.validateArticleRO(expect, res, undefined, updateDto);
+            workToUpdate.validateArticleRO(expect, res, undefined, updateDto);
           });
       });
 
       it('should get 401 without authentication ', () => {
         return request(server)
-          .put(`/articles/${user1Article1.info.slugReal}`)
-          .send(user1Article1.getCreateDto())
+          .put(`/articles/${workToUpdate.info.slugReal}`)
+          .send(workToUpdate.getCreateDto())
           .expect(HttpStatus.UNAUTHORIZED);
       });
 
       it('should get 403 with non-author authentication ', () => {
         return request(server)
-          .put(`/articles/${user1Article1.info.slugReal}`)
-          .set(user2.getAuthHeader())
+          .put(`/articles/${workToUpdate.info.slugReal}`)
+          .set(roles[1].getAuthHeader())
           .send({ title: 'new Title' })
           .expect(HttpStatus.FORBIDDEN);
       });
 
       it('should get 422 with invalid input', () => {
         return request(server)
-          .put(`/articles/${user1Article1.info.slugReal}`)
-          .set(user1.getAuthHeader())
+          .put(`/articles/${workToUpdate.info.slugReal}`)
+          .set(author.getAuthHeader())
           .send({ body: 123 })
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
       });
@@ -323,246 +317,262 @@ describe('AppController (e2e)', () => {
       it('should get 422 with non exit article', () => {
         return request(server)
           .put(`/articles/non-exist-article`)
-          .set(user1.getAuthHeader())
+          .set(author.getAuthHeader())
           .send({ body: '123' })
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
       });
     });
 
     describe('DELETE /article/:slug', () => {
+      const workToDelete = writerRole.works[1];
       it('should fail with non-author authentication', () => {
         return request(server)
-          .delete(`/articles/${user1Article1.info.slugReal}`)
-          .set(user2.getAuthHeader())
+          .delete(`/articles/${workToDelete.info.slugReal}`)
+          .set(roles[1].getAuthHeader())
           .expect(HttpStatus.FORBIDDEN);
       });
       it('should success with authentication and valid input', () => {
         return request(server)
-          .delete(`/articles/${user1Article1.info.slugReal}`)
-          .set(user1.getAuthHeader())
+          .delete(`/articles/${workToDelete.info.slugReal}`)
+          .set(writerRole.getAuthHeader())
           .expect(HttpStatus.OK)
           .then(res => {
             expect(res.body.affected).toBe(1);
+            writerRole.removeWork(workToDelete);
+            articles.splice(1, 1);
           });
       });
 
       it('should get 401 without authentication ', () => {
         return request(server)
-          .delete(`/articles/${user1Article1.info.slugReal}`)
+          .delete(`/articles/${workToDelete.info.slugReal}`)
           .expect(HttpStatus.UNAUTHORIZED);
       });
 
       it('should get 422 with non-exit article', () => {
         return request(server)
           .delete(`/articles/no-exits-article`)
-          .set(user1.getAuthHeader())
+          .set(writerRole.getAuthHeader())
           .expect(HttpStatus.UNPROCESSABLE_ENTITY)
           .then(res => {
             expect(res.body).toHaveProperty('errors');
           });
       });
     });
-
-    describe('Favorite && Unfavorite', () => {
-      describe('POST /articles/:slug/favorite', () => {
-        const favoriteFn = async (
-          article: TestArticleHelper,
-          user: TestUserInfoHelper,
-          expectResult: ArticleROParam,
-        ) => {
-          return request(server)
-            .post(`/articles/${article.info.slugReal}/favorite`)
-            .set((user && user.getAuthHeader()) || undefined)
-            .expect(HttpStatus.CREATED)
-            .then(res => {
-              article.validateArticleRO(expect, res, expectResult);
-            });
-        };
-        it('"favouritesCount" & "favorited" should update after favorite', () => {
-          return favoriteFn(user1Article2, user2, {
-            favorited: true,
-            favoritesCount: 1,
-            following: true,
-          }).then(() =>
-            favoriteFn(user1Article2, user1, {
-              favorited: true,
-              favoritesCount: 2,
-              following: false,
-            }),
-          );
-        });
-        it('should not fail favorite the same article', () => {
-          return favoriteFn(user1Article2, user2, {
-            favorited: true,
-            favoritesCount: 2,
-            following: true,
-          });
-        });
-        it('should get 401 without authentication', () => {
-          return request(server)
-            .post(`/articles/${user1Article2.info.slugReal}/favorite`)
-            .expect(HttpStatus.UNAUTHORIZED);
-        });
-        it('should get 422 when article does not exit', () => {
-          return request(server)
-            .post(`/articles/no-exits-article/favorite`)
-            .set(user1.getAuthHeader())
-            .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-        });
-      });
-      describe('DELETE /articles/:slug', () => {
-        const unfavoriteFn = async (
-          article: TestArticleHelper,
-          user: TestUserInfoHelper,
-          expectResult: ArticleROParam,
-        ) => {
-          return request(server)
-            .delete(`/articles/${article.info.slugReal}/favorite`)
-            .set((user && user.getAuthHeader()) || undefined)
-            .expect(HttpStatus.OK)
-            .then(res => {
-              article.validateArticleRO(expect, res, expectResult);
-            });
-        };
-        it('"favouritesCount" & "favorited" should update after unfavorite', () => {
-          return unfavoriteFn(user1Article2, user1, {
-            favorited: false,
-            favoritesCount: 1,
-            following: false,
-          });
-        });
-        it('should not fail unfavorite the same article', () => {
-          return unfavoriteFn(user1Article2, user1, {
-            favorited: false,
-            favoritesCount: 1,
-            following: false,
-          });
-        });
-        it('should get 401 without authentication', () => {
-          return request(server)
-            .delete(`/articles/${user1Article2.info.slugReal}/favorite`)
-            .expect(HttpStatus.UNAUTHORIZED);
-        });
-        it('should get 422 when article does not exit', () => {
-          return request(server)
-            .delete(`/articles/non-exist/favorite`)
-            .set(user1.getAuthHeader())
-            .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-        });
-      });
-    });
   });
-
-  describe('Comment Module', () => {
-    describe('POST /articles/:slug/comment', () => {
-      const createComment = async (
+  describe('Favorite && Unfavorite', () => {
+    describe('POST /articles/:slug/favorite', () => {
+      const favoriteFn = async (
         article: TestArticleHelper,
         user: TestUserInfoHelper,
-        msg: string = 'This is a comment' + new Date(),
-        following: boolean = false,
+        expectResult: ArticleROParam,
       ) => {
-        await delay(50);
-        const body = msg;
         return request(server)
-          .post(`/articles/${article.info.slugReal}/comments`)
-          .set(user.getAuthHeader())
-          .send({ comment: { body } })
+          .post(`/articles/${article.info.slugReal}/favorite`)
+          .set((user && user.getAuthHeader()) || undefined)
           .expect(HttpStatus.CREATED)
           .then(res => {
-            article.validateCommentRO(expect, res, user, {
-              following,
-              body,
-            });
+            article.validateArticleRO(expect, res, expectResult);
           });
       };
-      it('should success', () => {
-        return Promise.all([
-          createComment(user1Article2, user1, undefined, false),
-          createComment(user1Article2, user2, undefined, false),
-        ]);
+      const favAll = async (staticCount?: number) => {
+        let favCount = 0;
+
+        const favParams = roles.reduce((acc, role) => {
+          return acc.concat(
+            role.favorites.reduce((accc, art) => {
+              accc.push([
+                art,
+                role,
+                {
+                  favorited: true,
+                  following: role.isFollowing(writerRole),
+                  favoritesCount: staticCount || ++favCount,
+                },
+              ]);
+              return accc;
+            }, []),
+          );
+        }, []);
+
+        const factories = favParams.map(param => () =>
+          favoriteFn.apply(null, param),
+        );
+        return runSequentially(factories);
+      };
+      it('"favouritesCount" & "favorited" should update after favorite', () => {
+        return favAll();
       });
 
+      it('should not fail favorite the same article', () => {
+        return favAll(2);
+      });
       it('should get 401 without authentication', () => {
         return request(server)
-          .post(`/articles/${user1Article2.info.slugReal}/comments`)
-          .send({ comment: { body: 'Hello' } })
+          .post(`/articles/${roles[0].works[0].info.slugReal}/favorite`)
           .expect(HttpStatus.UNAUTHORIZED);
       });
-      it('should get 422 with invalid input', () => {
+      it('should get 422 when article does not exit', () => {
         return request(server)
-          .post(`/articles/${user1Article2.info.slugReal}/comments`)
-          .set(user2.getAuthHeader())
-          .send({ comment: { body: 342 } })
+          .post(`/articles/no-exits-article/favorite`)
+          .set(roles[0].getAuthHeader())
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
       });
     });
-
-    describe('GET /articles/:slug/comments', () => {
-      const validateComment = res => {
-        expect(res.body).toHaveProperty('comments');
-        const comments = res.body.comments;
-        expect(comments.length).toBe(2);
-        expect(comments[0].author.username).toBe('adminTest1');
-        expect(+new Date(comments[0].createdAt)).toBeGreaterThan(
-          +new Date(comments[1].createdAt),
-        );
+    describe('DELETE /articles/:slug/favorite', () => {
+      const articleToUnfavorite = writerRole.favorites[0];
+      const unfavoriteFn = async (
+        article: TestArticleHelper,
+        user: TestUserInfoHelper,
+        expectResult: ArticleROParam,
+      ) => {
+        return request(server)
+          .delete(`/articles/${article.info.slugReal}/favorite`)
+          .set((user && user.getAuthHeader()) || undefined)
+          .expect(HttpStatus.OK)
+          .then(res => {
+            article.validateArticleRO(expect, res, expectResult);
+            writerRole.unfavorite(articleToUnfavorite);
+          });
       };
-      it('should success without authentication', () => {
-        return request(server)
-          .get(`/articles/${user1Article2.info.slugReal}/comments`)
-          .expect(HttpStatus.OK)
-          .then(res => {
-            validateComment(res);
-            const [c1, c2] = res.body.comments;
-            expect(c1.author.following).toBeFalsy();
-            expect(c2.author.following).toBeFalsy();
-          });
+      it('"favouritesCount" & "favorited" should update after unfavorite', () => {
+        return unfavoriteFn(articleToUnfavorite, writerRole, {
+          favorited: false,
+          favoritesCount: 1,
+          following: false,
+        });
       });
-
-      it('should success with authentication, "author.following" should be true', () => {
-        return request(server)
-          .get(`/articles/${user1Article2.info.slugReal}/comments`)
-          .set(user2.getAuthHeader())
-          .expect(HttpStatus.OK)
-          .then(res => {
-            validateComment(res);
-            const [user2comment, user1comment] = res.body.comments;
-            expect(user1comment.author.following).toBeTruthy();
-            expect(user2comment.author.following).toBeFalsy();
-          });
+      it('should not fail unfavorite the same article', () => {
+        return unfavoriteFn(articleToUnfavorite, writerRole, {
+          favorited: false,
+          favoritesCount: 1,
+          following: false,
+        });
       });
-    });
-
-    describe('DELETE /articles/:slug/comments', () => {
-      it('should success', () => {
+      it('should get 401 without authentication', () => {
         return request(server)
-          .delete(`/articles/${user1Article2.info.slugReal}/comments/1`)
-          .set(user1.getAuthHeader())
-          .expect(HttpStatus.OK)
-          .then(res => {
-            expect(res.body.raw.affectedRows).toBe(1);
-          });
+          .delete(`/articles/${articleToUnfavorite.info.slugReal}/favorite`)
+          .expect(HttpStatus.UNAUTHORIZED);
       });
-      it('should get 422 with invalid article slug', () => {
+      it('should get 422 when article does not exit', () => {
         return request(server)
-          .delete(`/articles/not-exist-article/comments/1`)
-          .set(user2.getAuthHeader())
+          .delete(`/articles/non-exist/favorite`)
+          .set(roles[1].getAuthHeader())
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-      });
-      it('should get 422 with invalid comment id', () => {
-        return request(server)
-          .delete(`/articles/${user1Article2.info.slugReal}/comments/srer`)
-          .set(user2.getAuthHeader())
-          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-      });
-      it('should get 403 if is not the comment author', () => {
-        return request(server)
-          .delete(`/articles/${user1Article2.info.slugReal}/comments/2`)
-          .set(user1.getAuthHeader())
-          .expect(HttpStatus.FORBIDDEN);
       });
     });
   });
+
+  // describe('Comment Module', () => {
+  //   describe('POST /articles/:slug/comment', () => {
+  //     const createComment = async (
+  //       article: TestArticleHelper,
+  //       user: TestUserInfoHelper,
+  //       msg: string = 'This is a comment' + new Date(),
+  //       following: boolean = false,
+  //     ) => {
+  //       await delay(50);
+  //       const body = msg;
+  //       return request(server)
+  //         .post(`/articles/${article.info.slugReal}/comments`)
+  //         .set(user.getAuthHeader())
+  //         .send({ comment: { body } })
+  //         .expect(HttpStatus.CREATED)
+  //         .then(res => {
+  //           article.validateCommentRO(expect, res, user, {
+  //             following,
+  //             body,
+  //           });
+  //         });
+  //     };
+  //     it('should success', () => {
+  //       return Promise.all([
+  //         createComment(user1Article2, user1, undefined, false),
+  //         createComment(user1Article2, user2, undefined, false),
+  //       ]);
+  //     });
+
+  //     it('should get 401 without authentication', () => {
+  //       return request(server)
+  //         .post(`/articles/${user1Article2.info.slugReal}/comments`)
+  //         .send({ comment: { body: 'Hello' } })
+  //         .expect(HttpStatus.UNAUTHORIZED);
+  //     });
+  //     it('should get 422 with invalid input', () => {
+  //       return request(server)
+  //         .post(`/articles/${user1Article2.info.slugReal}/comments`)
+  //         .set(user2.getAuthHeader())
+  //         .send({ comment: { body: 342 } })
+  //         .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+  //     });
+  //   });
+
+  //   describe('GET /articles/:slug/comments', () => {
+  //     const validateComment = res => {
+  //       expect(res.body).toHaveProperty('comments');
+  //       const comments = res.body.comments;
+  //       expect(comments.length).toBe(2);
+  //       expect(comments[0].author.username).toBe('adminTest1');
+  //       expect(+new Date(comments[0].createdAt)).toBeGreaterThan(
+  //         +new Date(comments[1].createdAt),
+  //       );
+  //     };
+  //     it('should success without authentication', () => {
+  //       return request(server)
+  //         .get(`/articles/${user1Article2.info.slugReal}/comments`)
+  //         .expect(HttpStatus.OK)
+  //         .then(res => {
+  //           validateComment(res);
+  //           const [c1, c2] = res.body.comments;
+  //           expect(c1.author.following).toBeFalsy();
+  //           expect(c2.author.following).toBeFalsy();
+  //         });
+  //     });
+
+  //     it('should success with authentication, "author.following" should be true', () => {
+  //       return request(server)
+  //         .get(`/articles/${user1Article2.info.slugReal}/comments`)
+  //         .set(user2.getAuthHeader())
+  //         .expect(HttpStatus.OK)
+  //         .then(res => {
+  //           validateComment(res);
+  //           const [user2comment, user1comment] = res.body.comments;
+  //           expect(user1comment.author.following).toBeTruthy();
+  //           expect(user2comment.author.following).toBeFalsy();
+  //         });
+  //     });
+  //   });
+
+  //   describe('DELETE /articles/:slug/comments', () => {
+  //     it('should success', () => {
+  //       return request(server)
+  //         .delete(`/articles/${user1Article2.info.slugReal}/comments/1`)
+  //         .set(user1.getAuthHeader())
+  //         .expect(HttpStatus.OK)
+  //         .then(res => {
+  //           expect(res.body.raw.affectedRows).toBe(1);
+  //         });
+  //     });
+  //     it('should get 422 with invalid article slug', () => {
+  //       return request(server)
+  //         .delete(`/articles/not-exist-article/comments/1`)
+  //         .set(user2.getAuthHeader())
+  //         .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+  //     });
+  //     it('should get 422 with invalid comment id', () => {
+  //       return request(server)
+  //         .delete(`/articles/${user1Article2.info.slugReal}/comments/srer`)
+  //         .set(user2.getAuthHeader())
+  //         .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+  //     });
+  //     it('should get 403 if is not the comment author', () => {
+  //       return request(server)
+  //         .delete(`/articles/${user1Article2.info.slugReal}/comments/2`)
+  //         .set(user1.getAuthHeader())
+  //         .expect(HttpStatus.FORBIDDEN);
+  //     });
+  //   });
+  // });
 
   describe('Tag module', () => {
     it('GET /tags', () => {
