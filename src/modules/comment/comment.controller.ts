@@ -7,6 +7,7 @@ import {
   Body,
   Delete,
   Req,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtOptionalGuard } from '../auth/jwt-optional.guard';

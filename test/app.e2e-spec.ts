@@ -411,10 +411,44 @@ describe('AppController (e2e)', () => {
         });
       });
       describe('DELETE /articles/:slug', () => {
-        it('"favouritesCount" & "favorited" should update after unfavorite', () => {});
-        it('should not fail unfavorite the same article', () => {});
-        it('should get 401 without authentication', () => {});
-        it('should get 422 when article does not exit', () => {});
+        const unfavoriteFn = async (
+          article: TestArticleHelper,
+          user: TestUserInfoHelper,
+          expectResult: ArticleROParam,
+        ) => {
+          return request(server)
+            .delete(`/articles/${article.info.slugReal}/favorite`)
+            .set((user && user.getAuthHeader()) || undefined)
+            .expect(HttpStatus.OK)
+            .then(res => {
+              article.validateArticleRO(expect, res, expectResult);
+            });
+        };
+        it('"favouritesCount" & "favorited" should update after unfavorite', () => {
+          return unfavoriteFn(user1Article2, user1, {
+            favorited: false,
+            favoritesCount: 1,
+            following: false,
+          });
+        });
+        it('should not fail unfavorite the same article', () => {
+          return unfavoriteFn(user1Article2, user1, {
+            favorited: false,
+            favoritesCount: 1,
+            following: false,
+          });
+        });
+        it('should get 401 without authentication', () => {
+          return request(server)
+            .delete(`/articles/${user1Article2.info.slugReal}/favorite`)
+            .expect(HttpStatus.UNAUTHORIZED);
+        });
+        it('should get 422 when article does not exit', () => {
+          return request(server)
+            .delete(`/articles/non-exist/favorite`)
+            .set(user1.getAuthHeader())
+            .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+        });
       });
     });
   });

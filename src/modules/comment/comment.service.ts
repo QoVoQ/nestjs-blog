@@ -47,7 +47,7 @@ export class CommentService {
       .getMany();
 
     // const comments: CommentEntity[] = await this.articleRepository.query(
-    //   `SELECT * FROM comment WHERE authorId = ? ORDER BY createdAt DESC`,
+    //   `SELECT * FROM comment WHERE articleId = ? ORDER BY created_at DESC`,[article.id]
     // );
 
     const profileROs = await Promise.all(
