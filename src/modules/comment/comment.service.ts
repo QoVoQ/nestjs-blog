@@ -33,16 +33,16 @@ export class CommentService {
 
     comment = await this.commentRepository.save(comment);
 
-    const profile = user.buildProfile(false);
+    const { profile } = user.buildProfile(false);
 
     return comment.buildRO(profile);
   }
 
   async findAll(slug: string, user?: UserEntity): Promise<CommentsRO> {
     const article = await this.articleRepository.findOneOrFail({ slug });
-    const comments: CommentEntity[] = await this.commentRepository
+    const commentEntities: CommentEntity[] = await this.commentRepository
       .createQueryBuilder('comment')
-      .orderBy('comment.createdAt')
+      .orderBy('comment.createdAt', 'DESC')
       .where('comment.articleId = :articleId', { articleId: article.id })
       .getMany();
 
@@ -51,13 +51,17 @@ export class CommentService {
     // );
 
     const profileROs = await Promise.all(
-      comments.map(c => this.profileService.getProfile(c.authorId, user)),
+      commentEntities.map(c =>
+        this.profileService.getProfile(c.authorId, user),
+      ),
     );
 
+    const comments = commentEntities.map((c, i) => {
+      return c.buildROData(profileROs[i].profile);
+    });
+
     return {
-      comments: comments.map((c, i) => {
-        return c.buildROData(profileROs[i].profile);
-      }),
+      comments,
     };
   }
 

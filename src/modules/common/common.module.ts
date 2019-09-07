@@ -5,7 +5,7 @@ import { jwtConstants } from '../auth/constants';
 const JwtMD = JwtModule.register({
   secret: jwtConstants.secret,
   signOptions: {
-    expiresIn: '60s',
+    expiresIn: '30d',
   },
 });
 @Module({

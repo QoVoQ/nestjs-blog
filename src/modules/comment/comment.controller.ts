@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Delete,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtOptionalGuard } from '../auth/jwt-optional.guard';
@@ -16,6 +17,7 @@ import { UserEntity } from '../user/user.entity';
 import { DeleteResult } from 'typeorm';
 import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { Request } from 'express';
 
 @Controller('articles')
 export class CommentController {
@@ -33,10 +35,10 @@ export class CommentController {
   @UseGuards(JwtOptionalGuard)
   @Get(':slug/comments')
   async get(
-    @User() user: UserEntity,
+    @Req() req: Request,
     @Param('slug') slug: string,
   ): Promise<CommentsRO> {
-    return this.commentService.findAll(slug, user);
+    return this.commentService.findAll(slug, req.user as UserEntity);
   }
 
   @UseGuards(AuthGuard('jwt'))

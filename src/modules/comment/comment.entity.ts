@@ -58,12 +58,11 @@ export class CommentEntity {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       body: this.body,
-      // @TODO need to fix
-      author: (profile as any).profile,
+      author: profile,
     };
   }
 
-  buildRO(profile) {
+  buildRO(profile: Profile) {
     return { comment: this.buildROData(profile) };
   }
 }

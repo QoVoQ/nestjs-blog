@@ -9,6 +9,7 @@ import {
 } from './helpers/test-article-helper';
 import { UpdateArticleDto } from 'src/modules/article/dto';
 import { globalSetting } from 'src/app.global-setting';
+import { delay } from 'src/shared/utils';
 
 let moduleFixture: TestingModule;
 let app: INestApplication;
@@ -426,6 +427,7 @@ describe('AppController (e2e)', () => {
         msg: string = 'This is a comment' + new Date(),
         following: boolean = false,
       ) => {
+        await delay(50);
         const body = msg;
         return request(server)
           .post(`/articles/${article.info.slugReal}/comments`)
@@ -441,8 +443,8 @@ describe('AppController (e2e)', () => {
       };
       it('should success', () => {
         return Promise.all([
-          createComment(user1Article2, user2, undefined, false),
           createComment(user1Article2, user1, undefined, false),
+          createComment(user1Article2, user2, undefined, false),
         ]);
       });
 
@@ -458,6 +460,72 @@ describe('AppController (e2e)', () => {
           .set(user2.getAuthHeader())
           .send({ comment: { body: 342 } })
           .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+    });
+
+    describe('GET /articles/:slug/comments', () => {
+      const validateComment = res => {
+        expect(res.body).toHaveProperty('comments');
+        const comments = res.body.comments;
+        expect(comments.length).toBe(2);
+        expect(comments[0].author.username).toBe('adminTest1');
+        expect(+new Date(comments[0].createdAt)).toBeGreaterThan(
+          +new Date(comments[1].createdAt),
+        );
+      };
+      it('should success without authentication', () => {
+        return request(server)
+          .get(`/articles/${user1Article2.info.slugReal}/comments`)
+          .expect(HttpStatus.OK)
+          .then(res => {
+            validateComment(res);
+            const [c1, c2] = res.body.comments;
+            expect(c1.author.following).toBeFalsy();
+            expect(c2.author.following).toBeFalsy();
+          });
+      });
+
+      it('should success with authentication, "author.following" should be true', () => {
+        return request(server)
+          .get(`/articles/${user1Article2.info.slugReal}/comments`)
+          .set(user2.getAuthHeader())
+          .expect(HttpStatus.OK)
+          .then(res => {
+            validateComment(res);
+            const [user2comment, user1comment] = res.body.comments;
+            expect(user1comment.author.following).toBeTruthy();
+            expect(user2comment.author.following).toBeFalsy();
+          });
+      });
+    });
+
+    describe('DELETE /articles/:slug/comments', () => {
+      it('should success', () => {
+        return request(server)
+          .delete(`/articles/${user1Article2.info.slugReal}/comments/1`)
+          .set(user1.getAuthHeader())
+          .expect(HttpStatus.OK)
+          .then(res => {
+            expect(res.body.raw.affectedRows).toBe(1);
+          });
+      });
+      it('should get 422 with invalid article slug', () => {
+        return request(server)
+          .delete(`/articles/not-exist-article/comments/1`)
+          .set(user2.getAuthHeader())
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+      it('should get 422 with invalid comment id', () => {
+        return request(server)
+          .delete(`/articles/${user1Article2.info.slugReal}/comments/srer`)
+          .set(user2.getAuthHeader())
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+      it('should get 403 if is not the comment author', () => {
+        return request(server)
+          .delete(`/articles/${user1Article2.info.slugReal}/comments/2`)
+          .set(user1.getAuthHeader())
+          .expect(HttpStatus.FORBIDDEN);
       });
     });
   });
