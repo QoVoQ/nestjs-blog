@@ -24,6 +24,7 @@ import {
 import { JwtOptionalGuard } from '../auth/jwt-optional.guard';
 import { Request } from 'express';
 import { UserEntity } from '../user/user.entity';
+import { PaginationQuery } from '../common/interface/query';
 
 @Controller('articles')
 export class ArticleController {
@@ -36,6 +37,15 @@ export class ArticleController {
     @Req() req: Request,
   ): Promise<ArticleListRO> {
     return this.articleService.findAll(query, req.user as UserEntity);
+  }
+
+  @Get('feed')
+  @UseGuards(AuthGuard('jwt'))
+  async feed(
+    @Query() query: PaginationQuery,
+    @User() user: UserEntity,
+  ): Promise<ArticleListRO> {
+    return this.articleService.feed(query, user);
   }
 
   @Get(':slug')

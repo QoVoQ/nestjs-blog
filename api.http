@@ -31,7 +31,7 @@ Content-Type: application/json
 
 ### get status
 GET {{BASE_URI}}/user http/1.1
-Authorization: Token {{ACCESS_TOKEN}}
+Authorization: Token {{ACCESS_TOKEN2}}
 
 ### update user
 PUT {{BASE_URI}}/user http/1.1
@@ -49,7 +49,7 @@ Authorization: Token {{ACCESS_TOKEN}}
 
 ### follow
 POST {{BASE_URI}}/profiles/{{username}}/follow http/1.1
-Authorization: Token {{ACCESS_TOKEN}}
+Authorization: Token {{ACCESS_TOKEN2}}
 
 
 ### test
@@ -57,11 +57,11 @@ GET {{BASE_URI}} http/1.1
 
 ### create article
 POST {{BASE_URI}}/articles http/1.1
-Authorization: Token {{ACCESS_TOKEN}}
+Authorization: Token {{ACCESS_TOKEN2}}
 Content-Type: application/json
 
 {
-  "title": "This is firs article",
+  "title": "Awesome article",
   "description": "DEsc",
   "body": "I am body",
   "tagList": ["dsf", "343", "dfie"]
@@ -94,9 +94,14 @@ DELETE {{BASE_URI}}/articles/{{articleSlug}}/comments/1
 Authorization: Token {{ACCESS_TOKEN}}
 
 ### get article
-GET {{BASE_URI}}/articles?author=adminNew&tag=dsf&favorited=adminNew&limit=10&offset=0
+# GET {{BASE_URI}}/articles?author=adminNew&tag=dsf&favorited=adminNew&limit=10&offset=0
 # GET {{BASE_URI}}/articles?tag=343
-# GET {{BASE_URI}}/articles?favorited=adminNew
-# GET {{BASE_URI}}/articles?limit=2&offset=4
+GET {{BASE_URI}}/articles?favorited=adminNew
+# GET {{BASE_URI}}/articles
+Authorization: Token {{ACCESS_TOKEN2}}
+
+### article feed
+GET {{BASE_URI}}/articles/feed?limit=3&offset=4
+Authorization: Token {{ACCESS_TOKEN2}}
 
 

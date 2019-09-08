@@ -26,3 +26,8 @@ export interface ArticleGeneralQuery extends PaginationQuery {
   author?: string;
   favorited?: string;
 }
+
+export const ArticleEmptyListFactory = () => ({
+  articles: [],
+  articlesCount: 0,
+});

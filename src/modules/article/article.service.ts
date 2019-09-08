@@ -1,6 +1,6 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ArticleEntity } from './article.entity';
-import { Repository, DeleteResult } from 'typeorm';
+import { Repository, DeleteResult, SelectQueryBuilder } from 'typeorm';
 import { TagService } from '../tag/tag.service';
 import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
@@ -8,11 +8,14 @@ import {
   ArticleRO,
   ArticleGeneralQuery,
   ArticleListRO,
+  ArticleEmptyListFactory,
 } from './article.interface';
 import { ProfileService } from '../profile/profile.service';
 import { EditPermissionException } from 'src/exceptions/edit-permission.exception';
 import { EntityNotFoundError } from 'typeorm/error/EntityNotFoundError';
 import { TagEntity } from '../tag/tag.entity';
+import { ParsedUrlQuery } from 'querystring';
+import { PaginationQuery } from '../common/interface/query';
 
 export class ArticleService {
   constructor(
@@ -28,8 +31,6 @@ export class ArticleService {
     query: ArticleGeneralQuery,
     user?: UserEntity,
   ): Promise<ArticleListRO> {
-    let articles: ArticleEntity[];
-    let articlesCount: number;
     let tag: TagEntity;
     let author: UserEntity;
     let favoritedByUser: UserEntity;
@@ -76,34 +77,33 @@ export class ArticleService {
         });
       }
 
-      qb.orderBy('article.createdAt', 'DESC');
-      articlesCount = await qb.getCount();
-
-      qb.take(query.limit || 10);
-
-      if ('offset' in query) {
-        qb.skip(query.offset);
-      }
-
-      articles = await qb.getMany();
-      const parsedArticles = await Promise.all(
-        articles.map(a => this.getRO(a, user)),
-      );
-
-      return {
-        articles: parsedArticles,
-        articlesCount,
-      };
+      return this.runQueryAndGetArticleList(qb, query, user);
     } catch (e) {
       if (e instanceof EntityNotFoundError) {
-        return {
-          articles: [],
-          articlesCount: 0,
-        };
+        return ArticleEmptyListFactory();
       } else {
         throw e;
       }
     }
+  }
+
+  async feed(query: PaginationQuery, user: UserEntity): Promise<ArticleListRO> {
+    const followings = (await this.userRepository.findOneOrFail({
+      relations: ['followings'],
+      where: { id: user.id },
+    })).followings;
+
+    const followingsIds = followings.map(f => f.id);
+
+    if (followingsIds.length === 0) {
+      return ArticleEmptyListFactory();
+    }
+
+    const qb = this.articleRepository.createQueryBuilder('article');
+
+    qb.where('article.authorId IN (:followingsIds)', { followingsIds });
+
+    return this.runQueryAndGetArticleList(qb, query, user);
   }
   async findBySlug(slug: string, user?: UserEntity): Promise<ArticleRO> {
     const article = await this.articleRepository.findOne({ slug });
@@ -249,5 +249,28 @@ export class ArticleService {
     );
 
     return article.buildRO(profile, favorited);
+  }
+
+  private async runQueryAndGetArticleList(
+    qb: SelectQueryBuilder<ArticleEntity>,
+    query: PaginationQuery,
+    user: UserEntity,
+  ): Promise<ArticleListRO> {
+    qb.orderBy('article.createdAt', 'DESC');
+    const articlesCount = await qb.getCount();
+
+    qb.take(+query.limit || 10);
+
+    qb.skip(+query.offset || 0);
+
+    const articles = await qb.getMany();
+    const parsedArticles = await Promise.all(
+      articles.map(a => this.getRO(a, user)),
+    );
+
+    return {
+      articles: parsedArticles,
+      articlesCount,
+    };
   }
 }
