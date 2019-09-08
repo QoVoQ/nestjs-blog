@@ -80,6 +80,9 @@ export class ArticleEntity {
   @Expose()
   favoritesCount: number;
 
+  @ManyToMany(type => UserEntity, user => user.favorites)
+  favoriteBy: UserEntity[];
+
   @ManyToMany(type => TagEntity, { eager: true })
   @JoinTable({
     name: 'article_tag',

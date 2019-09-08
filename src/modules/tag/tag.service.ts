@@ -12,6 +12,10 @@ export class TagService {
     return this.tagRepository.find();
   }
 
+  async findTagByName(name: string) {
+    return this.tagRepository.findOneOrFail({ name });
+  }
+
   async saveTags(tags: string[]) {
     return Promise.all(tags.map(t => this.save(t)));
   }

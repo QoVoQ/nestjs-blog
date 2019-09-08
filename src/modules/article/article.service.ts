@@ -4,9 +4,15 @@ import { Repository, DeleteResult } from 'typeorm';
 import { TagService } from '../tag/tag.service';
 import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
-import { ArticleRO } from './article.interface';
+import {
+  ArticleRO,
+  ArticleGeneralQuery,
+  ArticleListRO,
+} from './article.interface';
 import { ProfileService } from '../profile/profile.service';
 import { EditPermissionException } from 'src/exceptions/edit-permission.exception';
+import { EntityNotFoundError } from 'typeorm/error/EntityNotFoundError';
+import { TagEntity } from '../tag/tag.entity';
 
 export class ArticleService {
   constructor(
@@ -18,6 +24,87 @@ export class ArticleService {
     private readonly profileService: ProfileService,
   ) {}
 
+  async findAll(
+    query: ArticleGeneralQuery,
+    user?: UserEntity,
+  ): Promise<ArticleListRO> {
+    let articles: ArticleEntity[];
+    let articlesCount: number;
+    let tag: TagEntity;
+    let author: UserEntity;
+    let favoritedByUser: UserEntity;
+
+    const qb = this.articleRepository.createQueryBuilder('article');
+    qb.leftJoinAndSelect('article.tagList', 'tag');
+
+    qb.where('1 = 1');
+
+    try {
+      if ('tag' in query) {
+        tag = await this.tagService.findTagByName(query.tag);
+        const articleIdsWithTag = await this.articleRepository.query(
+          `SELECT articleId FROM article_tag WHERE tagId = ?`,
+          [tag.id],
+        );
+        qb.andWhere('article.id IN (:articleIdsWithTag)', {
+          articleIdsWithTag: articleIdsWithTag.map(a => a.articleId),
+        });
+      }
+
+      if ('author' in query) {
+        author = await this.userRepository.findOneOrFail({
+          username: query.author,
+        });
+        qb.andWhere('article.authorId = :authorId', { authorId: author.id });
+      }
+
+      if ('favorited' in query) {
+        favoritedByUser =
+          query.favorited === query.author
+            ? author
+            : await this.userRepository.findOneOrFail({
+                username: query.favorited,
+              });
+        const idsFavorited = await this.userRepository.query(
+          `
+              SELECT articleId FROM favorites WHERE userId = ?
+        `,
+          [favoritedByUser.id],
+        );
+        qb.andWhere('article.id IN (:idsFavorited)', {
+          idsFavorited: idsFavorited.map(i => i.articleId),
+        });
+      }
+
+      qb.orderBy('article.createdAt', 'DESC');
+      articlesCount = await qb.getCount();
+
+      qb.take(query.limit || 10);
+
+      if ('offset' in query) {
+        qb.skip(query.offset);
+      }
+
+      articles = await qb.getMany();
+      const parsedArticles = await Promise.all(
+        articles.map(a => this.getRO(a, user)),
+      );
+
+      return {
+        articles: parsedArticles,
+        articlesCount,
+      };
+    } catch (e) {
+      if (e instanceof EntityNotFoundError) {
+        return {
+          articles: [],
+          articlesCount: 0,
+        };
+      } else {
+        throw e;
+      }
+    }
+  }
   async findBySlug(slug: string, user?: UserEntity): Promise<ArticleRO> {
     const article = await this.articleRepository.findOne({ slug });
 

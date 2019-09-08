@@ -6,7 +6,7 @@
 @username2=adminNew1
 @email=newAdmin@admin.com
 @password=666666
-@articleSlug=this-is-firs-article-rmk6fx
+@articleSlug=this-is-firs-article-zmjtpr
 
 ### login
 
@@ -70,6 +70,10 @@ Content-Type: application/json
 ### get by slug
 GET {{BASE_URI}}/articles/{{articleSlug}} http/1.1
 
+### favorite
+POST {{BASE_URI}}/articles/{{articleSlug}}/favorite http/1.1
+Authorization: Token {{ACCESS_TOKEN}}
+
 ### create comment
 POST {{BASE_URI}}/articles/{{articleSlug}}/comments
 Authorization: Token {{ACCESS_TOKEN2}}
@@ -89,5 +93,10 @@ Authorization: Token {{ACCESS_TOKEN}}
 DELETE {{BASE_URI}}/articles/{{articleSlug}}/comments/1
 Authorization: Token {{ACCESS_TOKEN}}
 
+### get article
+GET {{BASE_URI}}/articles?author=adminNew&tag=dsf&favorited=adminNew&limit=10&offset=0
+# GET {{BASE_URI}}/articles?tag=343
+# GET {{BASE_URI}}/articles?favorited=adminNew
+# GET {{BASE_URI}}/articles?limit=2&offset=4
 
 

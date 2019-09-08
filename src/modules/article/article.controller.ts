@@ -9,13 +9,18 @@ import {
   Delete,
   Req,
   UseFilters,
+  Query,
 } from '@nestjs/common';
 import { ArticleService } from './article.service';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from 'src/decorators';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { MyValidationPipe } from 'src/pipes/my-validation-pipe';
-import { ArticleRO } from './article.interface';
+import {
+  ArticleRO,
+  ArticleGeneralQuery,
+  ArticleListRO,
+} from './article.interface';
 import { JwtOptionalGuard } from '../auth/jwt-optional.guard';
 import { Request } from 'express';
 import { UserEntity } from '../user/user.entity';
@@ -23,6 +28,15 @@ import { UserEntity } from '../user/user.entity';
 @Controller('articles')
 export class ArticleController {
   constructor(private readonly articleService: ArticleService) {}
+
+  @Get()
+  @UseGuards(JwtOptionalGuard)
+  async findAll(
+    @Query() query: ArticleGeneralQuery,
+    @Req() req: Request,
+  ): Promise<ArticleListRO> {
+    return this.articleService.findAll(query, req.user as UserEntity);
+  }
 
   @Get(':slug')
   @UseGuards(JwtOptionalGuard)
