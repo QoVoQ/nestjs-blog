@@ -33,6 +33,8 @@ export function playStroy(): {
   roles[1].favorite(articleScience);
 
   const comments = [
+    roles[0].commentOn(articleScience, 'marvelous'),
+    // comment to delete
     roles[1].commentOn(articleScience, 'toDelete'),
     roles[1].commentOn(articleScience, 'brilliant'),
     roles[2].commentOn(articleScience, 'amazing'),

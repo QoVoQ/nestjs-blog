@@ -12,6 +12,7 @@ import { globalSetting } from 'src/app.global-setting';
 import { delay, runSequentially } from 'src/shared/utils';
 import { TestCommentHelper } from './helpers/test-comment-helper';
 import { playStroy } from './test-story';
+import { CommentData } from 'src/modules/comment/comment.interface';
 
 let moduleFixture: TestingModule;
 let app: INestApplication;
@@ -463,116 +464,132 @@ describe('AppController (e2e)', () => {
     });
   });
 
-  // describe('Comment Module', () => {
-  //   describe('POST /articles/:slug/comment', () => {
-  //     const createComment = async (
-  //       article: TestArticleHelper,
-  //       user: TestUserInfoHelper,
-  //       msg: string = 'This is a comment' + new Date(),
-  //       following: boolean = false,
-  //     ) => {
-  //       await delay(50);
-  //       const body = msg;
-  //       return request(server)
-  //         .post(`/articles/${article.info.slugReal}/comments`)
-  //         .set(user.getAuthHeader())
-  //         .send({ comment: { body } })
-  //         .expect(HttpStatus.CREATED)
-  //         .then(res => {
-  //           article.validateCommentRO(expect, res, user, {
-  //             following,
-  //             body,
-  //           });
-  //         });
-  //     };
-  //     it('should success', () => {
-  //       return Promise.all([
-  //         createComment(user1Article2, user1, undefined, false),
-  //         createComment(user1Article2, user2, undefined, false),
-  //       ]);
-  //     });
+  describe('Comment Module', () => {
+    describe('POST /articles/:slug/comment', () => {
+      const createComment = async (
+        article: TestArticleHelper,
+        user: TestUserInfoHelper,
+        msg: string = 'This is a comment' + new Date(),
+        following: boolean = false,
+      ) => {
+        await delay(50);
+        const body = msg;
+        return request(server)
+          .post(`/articles/${article.info.slugReal}/comments`)
+          .set(user.getAuthHeader())
+          .send({ comment: { body } })
+          .expect(HttpStatus.CREATED)
+          .then(res => {
+            article.validateCommentRO(expect, res, user, {
+              following,
+              body,
+            });
+          });
+      };
+      it('should success', () => {
+        // return Promise.all([
+        //   createComment(user1Article2, user1, undefined, false),
+        //   createComment(user1Article2, user2, undefined, false),
+        // ]);
+        const factories = comments.map(c => () =>
+          createComment(c.article, c.author, undefined, false),
+        );
+        return runSequentially(factories);
+      });
 
-  //     it('should get 401 without authentication', () => {
-  //       return request(server)
-  //         .post(`/articles/${user1Article2.info.slugReal}/comments`)
-  //         .send({ comment: { body: 'Hello' } })
-  //         .expect(HttpStatus.UNAUTHORIZED);
-  //     });
-  //     it('should get 422 with invalid input', () => {
-  //       return request(server)
-  //         .post(`/articles/${user1Article2.info.slugReal}/comments`)
-  //         .set(user2.getAuthHeader())
-  //         .send({ comment: { body: 342 } })
-  //         .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-  //     });
-  //   });
+      it('should get 401 without authentication', () => {
+        return request(server)
+          .post(`/articles/${articles[0].info.slugReal}/comments`)
+          .send({ comment: { body: 'Hello' } })
+          .expect(HttpStatus.UNAUTHORIZED);
+      });
+      it('should get 422 with invalid input', () => {
+        return request(server)
+          .post(`/articles/${articles[0].info.slugReal}/comments`)
+          .set(roles[1].getAuthHeader())
+          .send({ comment: { body: 342 } })
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+    });
 
-  //   describe('GET /articles/:slug/comments', () => {
-  //     const validateComment = res => {
-  //       expect(res.body).toHaveProperty('comments');
-  //       const comments = res.body.comments;
-  //       expect(comments.length).toBe(2);
-  //       expect(comments[0].author.username).toBe('adminTest1');
-  //       expect(+new Date(comments[0].createdAt)).toBeGreaterThan(
-  //         +new Date(comments[1].createdAt),
-  //       );
-  //     };
-  //     it('should success without authentication', () => {
-  //       return request(server)
-  //         .get(`/articles/${user1Article2.info.slugReal}/comments`)
-  //         .expect(HttpStatus.OK)
-  //         .then(res => {
-  //           validateComment(res);
-  //           const [c1, c2] = res.body.comments;
-  //           expect(c1.author.following).toBeFalsy();
-  //           expect(c2.author.following).toBeFalsy();
-  //         });
-  //     });
+    describe('GET /articles/:slug/comments', () => {
+      const validateComment = res => {
+        expect(res.body).toHaveProperty('comments');
+        const cmmts = res.body.comments;
+        expect(cmmts.length).toBe(comments.length);
+        expect(cmmts[0].author.username).toBe(
+          comments[comments.length - 1].author.userInfo.username,
+        );
+        expect(+new Date(cmmts[0].createdAt)).toBeGreaterThan(
+          +new Date(cmmts[1].createdAt),
+        );
+      };
+      it('should success without authentication', () => {
+        return request(server)
+          .get(`/articles/${articleScience.info.slugReal}/comments`)
+          .expect(HttpStatus.OK)
+          .then(res => {
+            validateComment(res);
+            const [c1, c2] = res.body.comments;
+            expect(c1.author.following).toBeFalsy();
+            expect(c2.author.following).toBeFalsy();
+          });
+      });
 
-  //     it('should success with authentication, "author.following" should be true', () => {
-  //       return request(server)
-  //         .get(`/articles/${user1Article2.info.slugReal}/comments`)
-  //         .set(user2.getAuthHeader())
-  //         .expect(HttpStatus.OK)
-  //         .then(res => {
-  //           validateComment(res);
-  //           const [user2comment, user1comment] = res.body.comments;
-  //           expect(user1comment.author.following).toBeTruthy();
-  //           expect(user2comment.author.following).toBeFalsy();
-  //         });
-  //     });
-  //   });
+      it('should success with authentication, "author.following" should be true', () => {
+        return request(server)
+          .get(`/articles/${articleScience.info.slugReal}/comments`)
+          .set(roles[1].getAuthHeader())
+          .expect(HttpStatus.OK)
+          .then(res => {
+            validateComment(res);
+            // ps: return comments is ordered by created_at desc
+            const cmmts: CommentData[] = res.body.comments.slice().reverse();
+            cmmts.forEach((c, idx) => {
+              expect(c.author.following).toBe(
+                roles[1].isFollowing(comments[idx].author),
+              );
+            });
+          });
+      });
+    });
 
-  //   describe('DELETE /articles/:slug/comments', () => {
-  //     it('should success', () => {
-  //       return request(server)
-  //         .delete(`/articles/${user1Article2.info.slugReal}/comments/1`)
-  //         .set(user1.getAuthHeader())
-  //         .expect(HttpStatus.OK)
-  //         .then(res => {
-  //           expect(res.body.raw.affectedRows).toBe(1);
-  //         });
-  //     });
-  //     it('should get 422 with invalid article slug', () => {
-  //       return request(server)
-  //         .delete(`/articles/not-exist-article/comments/1`)
-  //         .set(user2.getAuthHeader())
-  //         .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-  //     });
-  //     it('should get 422 with invalid comment id', () => {
-  //       return request(server)
-  //         .delete(`/articles/${user1Article2.info.slugReal}/comments/srer`)
-  //         .set(user2.getAuthHeader())
-  //         .expect(HttpStatus.UNPROCESSABLE_ENTITY);
-  //     });
-  //     it('should get 403 if is not the comment author', () => {
-  //       return request(server)
-  //         .delete(`/articles/${user1Article2.info.slugReal}/comments/2`)
-  //         .set(user1.getAuthHeader())
-  //         .expect(HttpStatus.FORBIDDEN);
-  //     });
-  //   });
-  // });
+    describe('DELETE /articles/:slug/comments', () => {
+      const idToDelete = articleScience.comments[1].dbId;
+      const nextDeletableId = idToDelete + 1;
+      it('should success', () => {
+        return request(server)
+          .delete(
+            `/articles/${articleScience.info.slugReal}/comments/${idToDelete}`,
+          )
+          .set(roles[1].getAuthHeader())
+          .expect(HttpStatus.OK)
+          .then(res => {
+            expect(res.body.raw.affectedRows).toBe(1);
+          });
+      });
+      it('should get 422 with invalid article slug', () => {
+        return request(server)
+          .delete(`/articles/not-exist-article/comments/${idToDelete + 1}`)
+          .set(roles[1].getAuthHeader())
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+      it('should get 422 with invalid comment id', () => {
+        return request(server)
+          .delete(`/articles/${articleScience.info.slugReal}/comments/srer`)
+          .set(roles[1].getAuthHeader())
+          .expect(HttpStatus.UNPROCESSABLE_ENTITY);
+      });
+      it('should get 403 if is not the comment author', () => {
+        return request(server)
+          .delete(
+            `/articles/${articleScience.info.slugReal}/comments/${nextDeletableId}`,
+          )
+          .set(roles[0].getAuthHeader())
+          .expect(HttpStatus.FORBIDDEN);
+      });
+    });
+  });
 
   describe('Tag module', () => {
     it('GET /tags', () => {
