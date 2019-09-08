@@ -1,3 +1,4 @@
+### REST Client for Visual Studio Code
 @BASE_URI=http://localhost:3000
 @ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTU2NzgyNDI0MiwiZXhwIjoxNTcwNDE2MjQyfQ.mBwmR7Rntwobz9s1MoBqGLAOrXJaSdi3qkFcce82Sh4
 @username=adminNew
