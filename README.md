@@ -18,6 +18,7 @@ This is a backend of a simple blog([realworld](https://github.com/gothinkster/re
 - [ ] Remove useless configuration
 - [ ] TestDBService for inserting predefined data into database before test starts
 - [ ] ELK Logging
+- [ ] E2E Refactor(Separate each test suit according to feature. Load necessary data before each test suit run.)
 
 ### Stacks
 
