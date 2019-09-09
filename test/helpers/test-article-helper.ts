@@ -34,6 +34,7 @@ export class TestArticleHelper {
   constructor(
     public readonly author: TestUserInfoHelper,
     public readonly id: string,
+    tags?: string[],
   ) {
     this.info = {
       slug: '',
@@ -41,11 +42,12 @@ export class TestArticleHelper {
       description: chance.paragraph({ sentences: 2 }).slice(0, 100),
       body: chance.paragraph({ sentences: 3 }),
       tagList:
-        uid % 2 === 0
+        tags ||
+        (uid % 2 === 0
           ? Array(3)
               .fill(0)
               .map(i => chance.word())
-          : [],
+          : []),
     };
 
     this.setTitle(chance.sentence({ words: 5 }));

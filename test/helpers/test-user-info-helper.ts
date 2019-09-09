@@ -76,8 +76,8 @@ export class TestUserInfoHelper {
     return this.followings.includes(a);
   }
 
-  createArticle(articleId: string): TestArticleHelper {
-    const a = new TestArticleHelper(this, articleId);
+  createArticle(articleId: string, tags?: string[]): TestArticleHelper {
+    const a = new TestArticleHelper(this, articleId, tags);
     this.works.push(a);
     return a;
   }

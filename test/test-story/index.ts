@@ -9,6 +9,7 @@ export function playStroy(): {
   comments: TestCommentHelper[];
   writerRole: TestUserInfoHelper;
   articleScience: TestArticleHelper;
+  tagScience: string;
 } {
   const roles = Array(3)
     .fill(0)
@@ -20,11 +21,21 @@ export function playStroy(): {
   // this relation will be removed during test
   roles[0].follow(roles[1]);
 
+  const tagScience = 'tagScience';
   const articles = [
-    writerRole.createArticle('Science'),
+    writerRole.createArticle('Science', [tagScience]),
+    writerRole.createArticle('Science0'),
+    writerRole.createArticle('Science1'),
+    writerRole.createArticle('Science2'),
+    writerRole.createArticle('Science3'),
+    writerRole.createArticle('Science4'),
+    writerRole.createArticle('Science5'),
     // 'Failure' will be removed during test
     writerRole.createArticle('Failure'),
     roles[1].createArticle('Bible'),
+    roles[2].createArticle('Leave0'),
+    roles[2].createArticle('Leave1'),
+    roles[2].createArticle('Leave2'),
   ];
 
   const articleScience = writerRole.getWorksById('Science');
@@ -40,5 +51,5 @@ export function playStroy(): {
     roles[2].commentOn(articleScience, 'amazing'),
   ];
 
-  return { roles, articles, comments, writerRole, articleScience };
+  return { roles, articles, comments, writerRole, articleScience, tagScience };
 }

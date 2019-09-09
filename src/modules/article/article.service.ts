@@ -47,6 +47,10 @@ export class ArticleService {
           `SELECT articleId FROM article_tag WHERE tagId = ?`,
           [tag.id],
         );
+        if (articleIdsWithTag.length === 0) {
+          return ArticleEmptyListFactory();
+        }
+
         qb.andWhere('article.id IN (:articleIdsWithTag)', {
           articleIdsWithTag: articleIdsWithTag.map(a => a.articleId),
         });
@@ -72,6 +76,10 @@ export class ArticleService {
         `,
           [favoritedByUser.id],
         );
+        if (idsFavorited.length === 0) {
+          return ArticleEmptyListFactory();
+        }
+
         qb.andWhere('article.id IN (:idsFavorited)', {
           idsFavorited: idsFavorited.map(i => i.articleId),
         });
@@ -265,11 +273,11 @@ export class ArticleService {
 
     const articles = await qb.getMany();
     const parsedArticles = await Promise.all(
-      articles.map(a => this.getRO(a, user)),
+      await articles.map(a => this.getRO(a, user)),
     );
 
     return {
-      articles: parsedArticles,
+      articles: parsedArticles.map(a => a.article),
       articlesCount,
     };
   }

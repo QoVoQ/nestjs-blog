@@ -1,23 +1,25 @@
 import { Profile } from '../profile/profile.interface';
 import { PaginationQuery } from '../common/interface/query';
 
+export interface ArticleROData {
+  slug: string;
+  title: string;
+  description: string;
+  body: string;
+  tagList: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  favorited: boolean;
+  favoritesCount: number;
+  author: Profile;
+}
+
 export interface ArticleRO {
-  article: {
-    slug: string;
-    title: string;
-    description: string;
-    body: string;
-    tagList: string[];
-    createdAt: Date;
-    updatedAt: Date;
-    favorited: boolean;
-    favoritesCount: number;
-    author: Profile;
-  };
+  article: ArticleROData;
 }
 
 export interface ArticleListRO {
-  articles: ArticleRO[];
+  articles: ArticleROData[];
   articlesCount: number;
 }
 

@@ -13,6 +13,7 @@ import { delay, runSequentially } from 'src/shared/utils';
 import { TestCommentHelper } from './helpers/test-comment-helper';
 import { playStroy } from './test-story';
 import { CommentData } from 'src/modules/comment/comment.interface';
+import { ArticleListRO } from 'src/modules/article/article.interface';
 
 let moduleFixture: TestingModule;
 let app: INestApplication;
@@ -22,8 +23,16 @@ let writerRole: TestUserInfoHelper;
 let articles: TestArticleHelper[];
 let articleScience: TestArticleHelper;
 let comments: TestCommentHelper[];
+let tagScience: string;
 // PS: runtime error maybe swallowed here, won't log any error msg in console
-({ roles, articles, comments, writerRole, articleScience } = playStroy());
+({
+  roles,
+  articles,
+  comments,
+  writerRole,
+  articleScience,
+  tagScience,
+} = playStroy());
 
 beforeAll(async () => {
   moduleFixture = await Test.createTestingModule({
@@ -273,6 +282,7 @@ describe('AppController (e2e)', () => {
           });
       });
     });
+
     describe('PUT /articles/:slug Update article', () => {
       const updateDto: UpdateArticleDto = {
         title: 'Updated title',
@@ -588,6 +598,146 @@ describe('AppController (e2e)', () => {
           .set(roles[0].getAuthHeader())
           .expect(HttpStatus.FORBIDDEN);
       });
+    });
+  });
+
+  describe('GET /articles : Query articles', () => {
+    it('should success sort by createdAt desc without query and authentication', () => {
+      return request(server)
+        .get('/articles')
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          // default limit
+          expect(news.length).toBe(10);
+          expect(articlesCount).toBe(articles.length);
+          // order by createdAt desc
+          expect(+new Date(news[0].createdAt)).toBeGreaterThan(
+            +new Date(news[9].createdAt),
+          );
+        });
+    });
+    it('limit should work', () => {
+      const limit = 5;
+      return request(server)
+        .get(`/articles?limit=${limit}`)
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(limit);
+          expect(articlesCount).toBe(articles.length);
+        });
+    });
+    it('offset should work', () => {
+      const limit = 5;
+      const offset = articles.length - limit + 1;
+      return request(server)
+        .get(`/articles?limit=${limit}&offset=${offset}`)
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(limit - 1);
+          expect(articlesCount).toBe(articles.length);
+        });
+    });
+    it('query author/favorited/tag should work without authentication', () => {
+      return request(server)
+        .get(
+          `/articles?author=${writerRole.userInfo.username}&favorited=${roles[1].userInfo.username}&tag=${tagScience}`,
+        )
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(1);
+          expect(articlesCount).toBe(1);
+        });
+    });
+
+    it('Property "favorited" & "author.following" should work with authentication', () => {
+      return request(server)
+        .get(
+          `/articles?author=${writerRole.userInfo.username}&favorited=${roles[1].userInfo.username}&tag=${tagScience}`,
+        )
+        .set(roles[1].getAuthHeader())
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(1);
+          expect(articlesCount).toBe(1);
+          expect(news[0].favorited).toBe(true);
+          expect(news[0].author.following).toBe(true);
+        });
+    });
+  });
+
+  describe('GET /articles/feed : Query articles', () => {
+    it('should success sort by createdAt desc with authentication', () => {
+      return request(server)
+        .get('/articles/feed')
+        .set(roles[1].getAuthHeader())
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          // default limit
+          expect(news.length).toBe(writerRole.works.length);
+          expect(articlesCount).toBe(writerRole.works.length);
+          // order by createdAt desc
+          expect(+new Date(news[0].createdAt)).toBeGreaterThan(
+            +new Date(news[news.length - 1].createdAt),
+          );
+        });
+    });
+    it('limit should work', () => {
+      const limit = 5;
+      return request(server)
+        .get(`/articles/feed?limit=${limit}`)
+        .set(roles[1].getAuthHeader())
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(limit);
+          expect(articlesCount).toBe(writerRole.works.length);
+        });
+    });
+    it('offset should work', () => {
+      const limit = 5;
+      const offset = writerRole.works.length - limit + 1;
+      return request(server)
+        .get(`/articles/feed?limit=${limit}&offset=${offset}`)
+        .set(roles[1].getAuthHeader())
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(limit - 1);
+          expect(articlesCount).toBe(writerRole.works.length);
+        });
+    });
+    it('should got 401 without authentication', () => {
+      return request(server)
+        .get(`/articles/feed`)
+        .expect(HttpStatus.UNAUTHORIZED);
+    });
+
+    it('Property "favorited" & "author.following" should work with authentication', () => {
+      return request(server)
+        .get(`/articles/feed`)
+        .set(roles[1].getAuthHeader())
+        .expect(HttpStatus.OK)
+        .then(res => {
+          expect(res.body).toHaveProperty('articles');
+          const { articles: news, articlesCount } = res.body as ArticleListRO;
+          expect(news.length).toBe(writerRole.works.length);
+          expect(articlesCount).toBe(writerRole.works.length);
+          expect(news[0].author.following).toBe(true);
+        });
     });
   });
 
