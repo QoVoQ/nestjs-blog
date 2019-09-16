@@ -90,3 +90,4 @@ npm run test:e2e
 ## JWT Security
 
 https://stackoverflow.com/questions/27067251/where-to-store-jwt-in-browser-how-to-protect-against-csrf/37396572
+ab -n 10000 -c100 -T application/json -p /tmp/ab-post-data.json localhost:3000/users/
